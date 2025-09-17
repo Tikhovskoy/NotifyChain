@@ -15,7 +15,7 @@ class NotificationTemplate(models.Model):
             ('push', 'Push Notification'),
         ]
     )
-    variables = models.JSONField(default=list, help_text="Список переменных для подстановки")
+    variables = models.JSONField(default=list)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
@@ -64,8 +64,8 @@ class Notification(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='normal')
 
-    context_data = models.JSONField(default=dict, help_text="Данные для подстановки в шаблон")
-    metadata = models.JSONField(default=dict, help_text="Дополнительные метаданные")
+    context_data = models.JSONField(default=dict)
+    metadata = models.JSONField(default=dict)
 
     scheduled_at = models.DateTimeField(null=True, blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)

@@ -28,10 +28,10 @@ class ProviderManager:
             provider = self._get_default_provider(channel)
 
         if not provider:
-            raise ProviderException(f"No provider found for channel {channel}")
+            raise ProviderException(f"Провайдер не найден для канала {channel}")
 
         if not provider.is_active:
-            raise ProviderException(f"Provider {provider.name} is not active")
+            raise ProviderException(f"Провайдер {provider.name} неактивен")
 
         return self._get_provider_instance(provider)
 
@@ -53,7 +53,7 @@ class ProviderManager:
             provider_model = self._get_provider_model(provider_instance.name)
 
             if not self._check_rate_limit(provider_model):
-                raise RateLimitException(f"Rate limit exceeded for provider {provider_model.name}")
+                raise RateLimitException(f"Превышен лимит запросов для провайдера {provider_model.name}")
 
             response = provider_instance.send(recipient, message, subject, metadata)
 
@@ -67,8 +67,8 @@ class ProviderManager:
                 duration = (timezone.now() - start_time).total_seconds()
                 self._record_usage(provider_model, success=False, duration=duration)
 
-            logger.error(f"Failed to send via {channel}: {str(e)}")
-            raise ProviderException(f"Delivery failed: {str(e)}")
+            logger.error(f"Ошибка отправки через {channel}: {str(e)}")
+            raise ProviderException(f"Ошибка доставки: {str(e)}")
 
     def get_available_providers(self, channel: str) -> List[Provider]:
 
@@ -158,7 +158,7 @@ class ProviderManager:
     def register_provider_class(self, name: str, provider_class: Type[BaseProvider]):
 
         self._provider_classes[name] = provider_class
-        logger.info(f"Registered provider class {name}")
+        logger.info(f"Зарегистрирован класс провайдера {name}")
 
     def _get_provider_by_name(self, name: str) -> Optional[Provider]:
         try:
@@ -195,7 +195,7 @@ class ProviderManager:
             provider_class = self._provider_classes.get(provider_class_name)
 
             if not provider_class:
-                raise ProviderException(f"Provider class {provider_class_name} not found")
+                raise ProviderException(f"Класс провайдера {provider_class_name} не найден")
 
             self._provider_instances[cache_key] = provider_class(provider_config)
 

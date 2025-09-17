@@ -6,10 +6,7 @@ from django.core.validators import RegexValidator
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
 
-    phone_regex = RegexValidator(
-        regex=r'^\+?1?\d{9,15}$',
-        message="Номер телефона должен быть в формате: '+999999999'. До 15 цифр."
-    )
+    phone_regex = RegexValidator(regex=r'^\+?1?\d{9,15}$')
     phone_number = models.CharField(validators=[phone_regex], max_length=17, blank=True)
 
     timezone = models.CharField(max_length=50, default='UTC')
@@ -18,7 +15,7 @@ class UserProfile(models.Model):
     email_verified = models.BooleanField(default=False)
     phone_verified = models.BooleanField(default=False)
 
-    push_token = models.CharField(max_length=255, blank=True, help_text="FCM/APNS токен")
+    push_token = models.CharField(max_length=255, blank=True)
     device_type = models.CharField(
         max_length=20,
         choices=[
@@ -56,13 +53,10 @@ class NotificationPreference(models.Model):
     security_alerts = models.BooleanField(default=True)
     system_notifications = models.BooleanField(default=True)
 
-    quiet_hours_start = models.TimeField(null=True, blank=True, help_text="Начало тихих часов")
-    quiet_hours_end = models.TimeField(null=True, blank=True, help_text="Конец тихих часов")
+    quiet_hours_start = models.TimeField(null=True, blank=True)
+    quiet_hours_end = models.TimeField(null=True, blank=True)
 
-    frequency_limit = models.PositiveIntegerField(
-        default=50,
-        help_text="Максимальное количество уведомлений в час"
-    )
+    frequency_limit = models.PositiveIntegerField(default=50)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

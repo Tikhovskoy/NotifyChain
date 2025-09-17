@@ -66,9 +66,9 @@ class BaseProvider(ABC):
     ):
 
         if success:
-            logger.info(f"{self.name}: Successfully sent to {recipient}")
+            logger.info(f"{self.name}: Успешно отправлено к {recipient}")
         else:
-            logger.error(f"{self.name}: Failed to send to {recipient}. Error: {error}")
+            logger.error(f"{self.name}: Ошибка отправки к {recipient}. Ошибка: {error}")
 
 
 class MockEmailProvider(BaseProvider):
@@ -81,7 +81,7 @@ class MockEmailProvider(BaseProvider):
         metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
 
-        logger.info(f"Mock Email: Sending '{subject}' to {recipient}")
+        logger.info(f"Mock Email: Отправка '{subject}' к {recipient}")
 
         response = {
             'success': True,
@@ -115,7 +115,7 @@ class MockSMSProvider(BaseProvider):
         metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
 
-        logger.info(f"Mock SMS: Sending to {recipient}: {message[:50]}...")
+        logger.info(f"Mock SMS: Отправка к {recipient}: {message[:50]}...")
 
         response = {
             'success': True,
@@ -149,7 +149,7 @@ class MockPushProvider(BaseProvider):
         metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
 
-        logger.info(f"Mock Push: Sending '{subject}' to device {recipient}")
+        logger.info(f"Mock Push: Отправка '{subject}' на устройство {recipient}")
 
         response = {
             'success': True,

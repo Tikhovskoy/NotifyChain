@@ -16,13 +16,13 @@ class NotificationValidator:
     def validate_recipient(recipient: User, channel: str) -> bool:
 
         if not isinstance(recipient, User):
-            raise ValidationException("Recipient must be a User instance")
+            raise ValidationException("Получатель должен быть экземпляром User")
 
         if not recipient.is_active:
-            raise ValidationException("Cannot send notifications to inactive users")
+            raise ValidationException("Невозможно отправлять уведомления неактивным пользователям")
 
         if channel == 'email' and not recipient.email:
-            raise ValidationException("User has no email address")
+            raise ValidationException("У пользователя нет email адреса")
 
         return True
 
@@ -31,7 +31,7 @@ class NotificationValidator:
 
         valid_channels = ['email', 'sms', 'push']
         if channel not in valid_channels:
-            raise ValidationException(f"Invalid channel: {channel}. Must be one of {valid_channels}")
+            raise ValidationException(f"Неверный канал: {channel}. Должен быть одним из {valid_channels}")
 
         return True
 
@@ -40,7 +40,7 @@ class NotificationValidator:
 
         valid_priorities = ['low', 'normal', 'high', 'urgent']
         if priority not in valid_priorities:
-            raise ValidationException(f"Invalid priority: {priority}. Must be one of {valid_priorities}")
+            raise ValidationException(f"Неверный приоритет: {priority}. Должен быть одним из {valid_priorities}")
 
         return True
 
@@ -48,13 +48,13 @@ class NotificationValidator:
     def validate_message_content(message: str, subject: str = "") -> bool:
 
         if not message or not message.strip():
-            raise ValidationException("Message content cannot be empty")
+            raise ValidationException("Содержимое сообщения не может быть пустым")
 
         if len(message) > 10000:
-            raise ValidationException("Message content is too long (max 10000 characters)")
+            raise ValidationException("Сообщение слишком длинное (максимум 10000 символов)")
 
         if subject and len(subject) > 200:
-            raise ValidationException("Subject is too long (max 200 characters)")
+            raise ValidationException("Тема слишком длинная (максимум 200 символов)")
 
         return True
 
@@ -154,7 +154,7 @@ class NotificationHelper:
             status__in=['sent', 'delivered', 'failed']
         ).delete()[0]
 
-        logger.info(f"Cleaned up {deleted_count} old notifications")
+        logger.info(f"Очищено {deleted_count} старых уведомлений")
         return deleted_count
 
     @staticmethod

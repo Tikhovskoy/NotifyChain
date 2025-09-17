@@ -14,21 +14,12 @@ class Provider(models.Model):
     is_active = models.BooleanField(default=True)
     is_default = models.BooleanField(default=False)
 
-    priority = models.PositiveIntegerField(default=1, help_text="Приоритет использования (1 - высший)")
+    priority = models.PositiveIntegerField(default=1)
 
-    config = models.JSONField(
-        default=dict,
-        help_text="Конфигурация провайдера (API ключи, настройки)"
-    )
+    config = models.JSONField(default=dict)
 
-    rate_limit_per_minute = models.PositiveIntegerField(
-        default=60,
-        help_text="Лимит запросов в минуту"
-    )
-    rate_limit_per_hour = models.PositiveIntegerField(
-        default=1000,
-        help_text="Лимит запросов в час"
-    )
+    rate_limit_per_minute = models.PositiveIntegerField(default=60)
+    rate_limit_per_hour = models.PositiveIntegerField(default=1000)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -50,7 +41,7 @@ class Provider(models.Model):
 
             if existing_default.exists():
                 raise ValidationError(
-                    f"Default provider for {self.provider_type} already exists"
+                    f"Провайдер по умолчанию для {self.provider_type} уже существует"
                 )
 
     def save(self, *args, **kwargs):
@@ -68,7 +59,7 @@ class ProviderUsage(models.Model):
     date = models.DateField()
     hour = models.PositiveIntegerField(null=True, blank=True)
 
-    average_response_time = models.FloatField(default=0.0, help_text="Среднее время ответа в секундах")
+    average_response_time = models.FloatField(default=0.0)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -102,10 +93,7 @@ class ProviderCredential(models.Model):
 
     endpoint_url = models.URLField(blank=True)
 
-    additional_params = models.JSONField(
-        default=dict,
-        help_text="Дополнительные параметры для провайдера"
-    )
+    additional_params = models.JSONField(default=dict)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -33,10 +33,10 @@ class NotificationService:
 
         recipient_address = self._get_recipient_address(recipient, channel)
         if not recipient_address:
-            raise ValueError(f"No {channel} address found for user {recipient.username}")
+            raise ValueError(f"Не найден {channel} адрес для пользователя {recipient.username}")
 
         if not self._can_send_to_user(recipient, channel):
-            raise ValueError(f"User {recipient.username} has disabled {channel} notifications")
+            raise ValueError(f"Пользователь {recipient.username} отключил {channel} уведомления")
 
         notification = Notification.objects.create(
             recipient=recipient,
@@ -53,13 +53,13 @@ class NotificationService:
 
         self._log_notification_event(notification, 'created', 'Notification created successfully')
 
-        logger.info(f"Created notification {notification.id} for {recipient.username} via {channel}")
+        logger.info(f"Создано уведомление {notification.id} для {recipient.username} через {channel}")
         return notification
 
     def send_notification(self, notification: Notification) -> bool:
 
         if not notification.is_ready_to_send():
-            logger.warning(f"Notification {notification.id} is not ready to send")
+            logger.warning(f"Уведомление {notification.id} не готово к отправке")
             return False
 
         try:
@@ -75,18 +75,18 @@ class NotificationService:
                     notification.status = 'sent'
                     notification.sent_at = timezone.now()
                     self._log_notification_event(notification, 'sent', 'Notification sent successfully')
-                    logger.info(f"Successfully sent notification {notification.id}")
+                    logger.info(f"Успешно отправлено уведомление {notification.id}")
                 else:
                     notification.status = 'failed'
                     notification.retry_count += 1
                     self._log_notification_event(notification, 'failed', 'Failed to send notification')
-                    logger.error(f"Failed to send notification {notification.id}")
+                    logger.error(f"Ошибка отправки уведомления {notification.id}")
 
                 notification.save()
                 return success
 
         except Exception as e:
-            logger.error(f"Error sending notification {notification.id}: {str(e)}")
+            logger.error(f"Ошибка отправки уведомления {notification.id}: {str(e)}")
             notification.status = 'failed'
             notification.error_message = str(e)
             notification.retry_count += 1
@@ -98,10 +98,10 @@ class NotificationService:
     def retry_failed_notification(self, notification: Notification) -> bool:
 
         if not notification.can_retry():
-            logger.warning(f"Notification {notification.id} cannot be retried")
+            logger.warning(f"Невозможно повторить отправку уведомления {notification.id}")
             return False
 
-        logger.info(f"Retrying notification {notification.id}, attempt {notification.retry_count + 1}")
+        logger.info(f"Повторная отправка уведомления {notification.id}, попытка {notification.retry_count + 1}")
         return self.send_notification(notification)
 
     def send_bulk_notifications(
@@ -130,11 +130,93 @@ class NotificationService:
                 )
                 notifications.append(notification)
             except Exception as e:
-                logger.error(f"Failed to create notification for {recipient.username}: {str(e)}")
+                logger.error(f"Ошибка создания уведомления для {recipient.username}: {str(e)}")
                 continue
 
-        logger.info(f"Created {len(notifications)} bulk notifications for {channel}")
+        logger.info(f"Создано {len(notifications)} массовых уведомлений для {channel}")
         return notifications
+
+    def send_notification_async(self, notification: Notification) -> str:
+
+        from tasks.notification_tasks import send_notification_task
+
+        if not notification.is_ready_to_send():
+            raise ValueError(f"Уведомление {notification.id} не готово к отправке")
+
+        notification.status = 'queued'
+        notification.save()
+
+        self._log_notification_event(notification, 'queued', 'Notification queued for async processing')
+
+        task = send_notification_task.delay(notification.id)
+
+        logger.info(f"Уведомление {notification.id} поставлено в очередь на асинхронную отправку, task_id: {task.id}")
+        return task.id
+
+    def send_bulk_notifications_async(
+        self,
+        recipients: List[User],
+        channel: str,
+        message: str,
+        subject: str = "",
+        template: Optional[NotificationTemplate] = None,
+        context_data: Optional[Dict[str, Any]] = None,
+        priority: str = 'normal'
+    ) -> str:
+
+        from tasks.notification_tasks import send_bulk_notifications_task
+
+        notifications = self.send_bulk_notifications(
+            recipients=recipients,
+            channel=channel,
+            message=message,
+            subject=subject,
+            template=template,
+            context_data=context_data,
+            priority=priority
+        )
+
+        notification_ids = []
+        for notification in notifications:
+            notification.status = 'queued'
+            notification.save()
+            notification_ids.append(notification.id)
+
+        task = send_bulk_notifications_task.delay(notification_ids)
+
+        logger.info(f"{len(notification_ids)} уведомлений поставлено в очередь на массовую асинхронную отправку, task_id: {task.id}")
+        return task.id
+
+    def schedule_notification(
+        self,
+        recipient: User,
+        channel: str,
+        message: str,
+        scheduled_at: timezone.datetime,
+        subject: str = "",
+        template: Optional[NotificationTemplate] = None,
+        context_data: Optional[Dict[str, Any]] = None,
+        priority: str = 'normal',
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Notification:
+
+        if scheduled_at <= timezone.now():
+            raise ValueError("Время отправки должно быть в будущем")
+
+        notification = self.create_notification(
+            recipient=recipient,
+            channel=channel,
+            message=message,
+            subject=subject,
+            template=template,
+            context_data=context_data,
+            priority=priority,
+            scheduled_at=scheduled_at,
+            metadata=metadata
+        )
+
+        logger.info(f"Запланировано уведомление {notification.id} на {scheduled_at}")
+        return notification
 
     def get_user_notifications(
         self,
@@ -188,9 +270,44 @@ class NotificationService:
 
     def _deliver_notification(self, notification: Notification) -> bool:
 
-        logger.info(f"Delivering notification {notification.id} via {notification.channel}")
+        logger.info(f"Отправка уведомления {notification.id} через {notification.channel}")
 
-        return True
+        try:
+            from apps.providers.services import ProviderManager
+
+            provider_manager = ProviderManager()
+
+            message = notification.message
+            subject = notification.subject
+
+            if notification.template and notification.context_data:
+                from .template_service import TemplateService
+                template_service = TemplateService()
+                rendered = template_service.render_template(notification.template, notification.context_data)
+                subject = rendered['subject']
+                message = rendered['body']
+
+            response = provider_manager.send_notification(
+                channel=notification.channel,
+                recipient=notification.recipient_address,
+                message=message,
+                subject=subject,
+                metadata=notification.metadata
+            )
+
+            self._log_notification_event(
+                notification,
+                'provider_response',
+                'Provider response received',
+                response
+            )
+
+            return response.get('success', False)
+
+        except Exception as e:
+            logger.error(f"Ошибка доставки уведомления {notification.id}: {str(e)}")
+            notification.error_message = str(e)
+            return False
 
     def _log_notification_event(
         self,
