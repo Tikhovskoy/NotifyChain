@@ -270,7 +270,50 @@ class NotificationService:
 
     def _deliver_notification(self, notification: Notification) -> bool:
 
-        logger.info(f"Отправка уведомления {notification.id} через {notification.channel}")
+        fallback_channels = ['email', 'sms', 'push']
+        channels_to_try = []
+
+        if notification.channel in fallback_channels:
+            start_index = fallback_channels.index(notification.channel)
+            channels_to_try = fallback_channels[start_index:]
+        else:
+            channels_to_try = [notification.channel]
+
+        for channel in channels_to_try:
+            recipient_address = self._get_recipient_address(notification.recipient, channel)
+
+            if not recipient_address:
+                logger.warning(f"Нет {channel} адреса для пользователя {notification.recipient.username}")
+                continue
+
+            if not self._can_send_to_user(notification.recipient, channel):
+                logger.warning(f"Пользователь {notification.recipient.username} отключил {channel} уведомления")
+                continue
+
+            logger.info(f"Пытаюсь отправить уведомление {notification.id} через канал {channel}")
+
+            try:
+                success = self._try_send_via_channel(
+                    notification,
+                    channel,
+                    recipient_address
+                )
+
+                if success:
+                    if channel != notification.channel:
+                        logger.info(f"Успешный fallback для уведомления {notification.id}: {notification.channel} → {channel}")
+                        notification.channel = channel
+                        notification.recipient_address = recipient_address
+                    return True
+
+            except Exception as e:
+                logger.warning(f"Ошибка отправки через {channel}: {str(e)}")
+                continue
+
+        logger.error(f"Все каналы недоступны для уведомления {notification.id}")
+        return False
+
+    def _try_send_via_channel(self, notification: Notification, channel: str, recipient_address: str) -> bool:
 
         try:
             from apps.providers.services import ProviderManager
@@ -288,8 +331,8 @@ class NotificationService:
                 message = rendered['body']
 
             response = provider_manager.send_notification(
-                channel=notification.channel,
-                recipient=notification.recipient_address,
+                channel=channel,
+                recipient=recipient_address,
                 message=message,
                 subject=subject,
                 metadata=notification.metadata
@@ -298,14 +341,14 @@ class NotificationService:
             self._log_notification_event(
                 notification,
                 'provider_response',
-                'Provider response received',
+                f'Provider response for {channel}',
                 response
             )
 
             return response.get('success', False)
 
         except Exception as e:
-            logger.error(f"Ошибка доставки уведомления {notification.id}: {str(e)}")
+            logger.error(f"Ошибка доставки уведомления {notification.id} через {channel}: {str(e)}")
             notification.error_message = str(e)
             return False
 

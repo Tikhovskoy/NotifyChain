@@ -5,6 +5,9 @@ from datetime import timedelta
 
 from ..models import Provider, ProviderUsage
 from .base_provider import BaseProvider, MockEmailProvider, MockSMSProvider, MockPushProvider
+from .email_providers import SMTPEmailProvider, SendGridEmailProvider
+from .sms_providers import TwilioSMSProvider
+from .telegram_providers import TelegramProvider
 from apps.notifications.exceptions import ProviderException, RateLimitException
 
 logger = logging.getLogger('notifychain.providers')
@@ -17,6 +20,10 @@ class ProviderManager:
             'mock_email': MockEmailProvider,
             'mock_sms': MockSMSProvider,
             'mock_push': MockPushProvider,
+            'smtp': SMTPEmailProvider,
+            'sendgrid': SendGridEmailProvider,
+            'twilio': TwilioSMSProvider,
+            'telegram': TelegramProvider,
         }
         self._provider_instances = {}
 
@@ -45,30 +52,58 @@ class ProviderManager:
         provider_name: Optional[str] = None
     ) -> Dict[str, Any]:
 
-        provider_model = None
-        start_time = timezone.now()
+        if provider_name:
+            providers_to_try = [self._get_provider_by_name(provider_name)]
+            if not providers_to_try[0]:
+                raise ProviderException(f"Провайдер {provider_name} не найден")
+        else:
+            providers_to_try = self.get_available_providers(channel)
+            if not providers_to_try:
+                raise ProviderException(f"Нет доступных провайдеров для канала {channel}")
 
-        try:
-            provider_instance = self.get_provider(channel, provider_name)
-            provider_model = self._get_provider_model(provider_instance.name)
+        last_exception = None
 
-            if not self._check_rate_limit(provider_model):
-                raise RateLimitException(f"Превышен лимит запросов для провайдера {provider_model.name}")
+        for provider_model in providers_to_try:
+            if not provider_model.is_active:
+                logger.info(f"Пропускаю неактивный провайдер {provider_model.name}")
+                continue
 
-            response = provider_instance.send(recipient, message, subject, metadata)
+            start_time = timezone.now()
 
-            duration = (timezone.now() - start_time).total_seconds()
-            self._record_usage(provider_model, success=True, duration=duration)
+            try:
+                if not self._check_rate_limit(provider_model):
+                    logger.warning(f"Превышен лимит для провайдера {provider_model.name}, пробую следующий")
+                    continue
 
-            return response
+                provider_instance = self._get_provider_instance(provider_model)
+                logger.info(f"Пытаюсь отправить через провайдер {provider_model.name}")
 
-        except Exception as e:
-            if provider_model:
+                response = provider_instance.send(recipient, message, subject, metadata)
+
+                duration = (timezone.now() - start_time).total_seconds()
+                self._record_usage(provider_model, success=True, duration=duration)
+
+                logger.info(f"Успешно отправлено через провайдер {provider_model.name}")
+                return response
+
+            except Exception as e:
                 duration = (timezone.now() - start_time).total_seconds()
                 self._record_usage(provider_model, success=False, duration=duration)
 
-            logger.error(f"Ошибка отправки через {channel}: {str(e)}")
-            raise ProviderException(f"Ошибка доставки: {str(e)}")
+                logger.warning(f"Ошибка отправки через {provider_model.name}: {str(e)}")
+                last_exception = e
+
+                if provider_name:
+                    break
+
+                continue
+
+        error_msg = f"Все провайдеры канала {channel} недоступны"
+        if last_exception:
+            error_msg += f": {str(last_exception)}"
+
+        logger.error(error_msg)
+        raise ProviderException(error_msg)
 
     def get_available_providers(self, channel: str) -> List[Provider]:
 
@@ -185,21 +220,17 @@ class ProviderManager:
         cache_key = f"{provider.name}_{provider.id}"
 
         if cache_key not in self._provider_instances:
-            provider_config = {
-                'name': provider.name,
-                'provider_type': provider.provider_type,
-                **provider.config
-            }
-
             provider_class_name = provider.config.get('class_name', f'mock_{provider.provider_type}')
             provider_class = self._provider_classes.get(provider_class_name)
 
             if not provider_class:
                 raise ProviderException(f"Класс провайдера {provider_class_name} не найден")
 
-            self._provider_instances[cache_key] = provider_class(provider_config)
+            self._provider_instances[cache_key] = provider_class()
 
-        return self._provider_instances[cache_key]
+        instance = self._provider_instances[cache_key]
+        instance.name = provider.name
+        return instance
 
     def _get_provider_model(self, provider_name: str) -> Provider:
         return Provider.objects.get(name=provider_name)
