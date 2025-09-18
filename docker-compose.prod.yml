@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://notifychain:${DB_PASSWORD:-securepassword123}@db:5432/notifychain
+      - REDIS_URL=redis://redis:6379/0
+      - DEBUG=False
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+    networks:
+      - notifychain-network
+
+  celery:
+    build: .
+    command: celery -A notifychain worker -l info
+    environment:
+      - DATABASE_URL=postgresql://notifychain:${DB_PASSWORD:-securepassword123}@db:5432/notifychain
+      - REDIS_URL=redis://redis:6379/0
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+    networks:
+      - notifychain-network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - notifychain-network
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=notifychain
+      - POSTGRES_USER=notifychain
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-securepassword123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - notifychain-network
+
+volumes:
+  postgres_data:
+
+networks:
+  notifychain-network:
+    driver: bridge
