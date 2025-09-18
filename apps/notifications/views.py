@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.contrib.auth.models import User
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -19,7 +19,7 @@ from .utils import NotificationHelper
 class NotificationTemplateViewSet(viewsets.ModelViewSet):
     queryset = NotificationTemplate.objects.all()
     serializer_class = NotificationTemplateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['template_type', 'is_active']
     search_fields = ['name', 'subject', 'body']
@@ -74,9 +74,9 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ['status', 'channel', 'priority', 'recipient']
+    filterset_fields = ['status', 'channel', 'priority']
     search_fields = ['subject', 'recipient__username', 'recipient_address']
     ordering_fields = ['created_at', 'sent_at', 'priority']
     ordering = ['-created_at']
@@ -84,8 +84,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
 
-        if not self.request.user.is_staff:
+        if self.request.user.is_authenticated and not self.request.user.is_staff:
             queryset = queryset.filter(recipient=self.request.user)
+        elif not self.request.user.is_authenticated:
+            queryset = queryset.none()
 
         return queryset.select_related('recipient', 'template').prefetch_related('logs')
 
