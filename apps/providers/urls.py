@@ -7,5 +7,5 @@ router.register(r'providers', ProviderViewSet)
 router.register(r'usage', ProviderUsageViewSet)
 
 urlpatterns = [
-    path('api/', include(router.urls)),
+    path('', include(router.urls)),
 ]

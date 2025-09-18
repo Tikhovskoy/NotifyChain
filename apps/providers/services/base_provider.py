@@ -7,13 +7,23 @@ logger = logging.getLogger('notifychain.providers')
 
 class BaseProvider(ABC):
 
-    def __init__(self, provider_config: Dict[str, Any]):
-        self.config = provider_config
-        self.name = provider_config.get('name', 'Unknown')
-        self.provider_type = provider_config.get('provider_type', 'unknown')
+    def __init__(self, provider_config: Dict[str, Any] = None):
+        self.config = provider_config or {}
+        self.name = self.config.get('name', 'Unknown')
+        self.provider_type = getattr(self, 'provider_type', 'unknown')
+
+    def send(
+        self,
+        recipient: str,
+        message: str,
+        subject: str = "",
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+
+        return self.send_notification(recipient, message, subject, metadata)
 
     @abstractmethod
-    def send(
+    def send_notification(
         self,
         recipient: str,
         message: str,
@@ -24,7 +34,7 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    def validate_config(self) -> bool:
+    def validate_config(self) -> Dict[str, Any]:
 
         pass
 
@@ -72,8 +82,10 @@ class BaseProvider(ABC):
 
 
 class MockEmailProvider(BaseProvider):
+    provider_type = 'email'
+    provider_name = 'mock_email'
 
-    def send(
+    def send_notification(
         self,
         recipient: str,
         message: str,
@@ -86,7 +98,7 @@ class MockEmailProvider(BaseProvider):
         response = {
             'success': True,
             'message_id': f"email_{hash(recipient + message)}_mock",
-            'provider': self.name,
+            'provider': self.provider_name,
             'recipient': recipient,
             'timestamp': 'mock_timestamp'
         }
@@ -94,8 +106,8 @@ class MockEmailProvider(BaseProvider):
         self.log_send_attempt(recipient, True, response)
         return response
 
-    def validate_config(self) -> bool:
-        return True
+    def validate_config(self) -> Dict[str, Any]:
+        return {'is_valid': True, 'errors': []}
 
     def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
         return {
@@ -106,8 +118,10 @@ class MockEmailProvider(BaseProvider):
 
 
 class MockSMSProvider(BaseProvider):
+    provider_type = 'sms'
+    provider_name = 'mock_sms'
 
-    def send(
+    def send_notification(
         self,
         recipient: str,
         message: str,
@@ -120,7 +134,7 @@ class MockSMSProvider(BaseProvider):
         response = {
             'success': True,
             'message_id': f"sms_{hash(recipient + message)}_mock",
-            'provider': self.name,
+            'provider': self.provider_name,
             'recipient': recipient,
             'timestamp': 'mock_timestamp'
         }
@@ -128,8 +142,8 @@ class MockSMSProvider(BaseProvider):
         self.log_send_attempt(recipient, True, response)
         return response
 
-    def validate_config(self) -> bool:
-        return True
+    def validate_config(self) -> Dict[str, Any]:
+        return {'is_valid': True, 'errors': []}
 
     def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
         return {
@@ -140,8 +154,10 @@ class MockSMSProvider(BaseProvider):
 
 
 class MockPushProvider(BaseProvider):
+    provider_type = 'push'
+    provider_name = 'mock_push'
 
-    def send(
+    def send_notification(
         self,
         recipient: str,
         message: str,
@@ -154,7 +170,7 @@ class MockPushProvider(BaseProvider):
         response = {
             'success': True,
             'message_id': f"push_{hash(recipient + message)}_mock",
-            'provider': self.name,
+            'provider': self.provider_name,
             'recipient': recipient,
             'timestamp': 'mock_timestamp'
         }
@@ -162,8 +178,8 @@ class MockPushProvider(BaseProvider):
         self.log_send_attempt(recipient, True, response)
         return response
 
-    def validate_config(self) -> bool:
-        return True
+    def validate_config(self) -> Dict[str, Any]:
+        return {'is_valid': True, 'errors': []}
 
     def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
         return {

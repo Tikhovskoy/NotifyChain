@@ -32,7 +32,7 @@ def api_root(request):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", include("apps.notifications.urls")),
-    path("", include("apps.providers.urls")),
+    path("api/", include("apps.notifications.urls")),
+    path("api/", include("apps.providers.urls")),
     path("", api_root),
 ]

@@ -7,5 +7,5 @@ router.register(r'notifications', NotificationViewSet)
 router.register(r'templates', NotificationTemplateViewSet)
 
 urlpatterns = [
-    path('api/', include(router.urls)),
+    path('', include(router.urls)),
 ]

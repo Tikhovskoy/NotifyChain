@@ -237,7 +237,7 @@ def collect_system_metrics() -> Dict[str, Any]:
         email_sent=channel_counts.get('email', 0),
         sms_sent=channel_counts.get('sms', 0),
         push_sent=channel_counts.get('push', 0),
-        active_users=0
+        active_users=0,
         queue_size=Notification.objects.filter(status__in=['pending', 'queued']).count()
     )
 

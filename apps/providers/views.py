@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
@@ -16,7 +16,7 @@ from .services import ProviderManager
 class ProviderViewSet(viewsets.ModelViewSet):
     queryset = Provider.objects.all()
     serializer_class = ProviderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ['provider_type', 'is_active', 'is_default']
     search_fields = ['name']
@@ -24,9 +24,7 @@ class ProviderViewSet(viewsets.ModelViewSet):
     ordering = ['provider_type', 'priority']
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
-        return [IsAuthenticated()]
+        return [AllowAny()]
 
     @action(detail=True, methods=['post'])
     def test(self, request, pk=None):
@@ -110,7 +108,7 @@ class ProviderViewSet(viewsets.ModelViewSet):
 class ProviderUsageViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ProviderUsage.objects.all()
     serializer_class = ProviderUsageSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ['provider', 'date', 'hour']
     ordering_fields = ['date', 'hour', 'requests_count', 'success_rate']
