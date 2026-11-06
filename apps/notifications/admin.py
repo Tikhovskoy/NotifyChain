@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
 
+from .exceptions import TemplateException
 from .models import Notification, NotificationLog, NotificationTemplate
 from .services import TemplateService
 
@@ -38,7 +39,7 @@ class NotificationTemplateAdmin(admin.ModelAdmin):
                     preview["subject"],
                     preview["body"].replace("\n", "<br>"),
                 )
-            except Exception as e:
+            except TemplateException as e:
                 return format_html('<span style="color: red;">Ошибка: {}</span>', str(e))
         return "Сохраните шаблон для просмотра"
 

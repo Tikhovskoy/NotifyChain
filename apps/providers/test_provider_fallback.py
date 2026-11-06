@@ -31,6 +31,14 @@ class InChannelFallbackTest(ProviderFallbackTestCase):
         self.assertEqual(response["provider"], "sendgrid")
         self.assertEqual(self.calls, ["smtp", "sendgrid"])
 
+    def test_unexpected_error_in_provider_code_does_not_break_the_fallback(self):
+        self.add_provider("smtp", raises(KeyError("внутренняя ошибка")), priority=1)
+        self.add_provider("sendgrid", ok("sendgrid"), priority=2)
+
+        response = self.send()
+
+        self.assertEqual(response["provider"], "sendgrid")
+
     def test_providers_are_tried_in_priority_order(self):
         self.add_provider("third", raises(RuntimeError("x")), priority=3)
         self.add_provider("first", raises(RuntimeError("x")), priority=1)

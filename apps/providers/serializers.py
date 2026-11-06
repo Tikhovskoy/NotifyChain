@@ -32,16 +32,13 @@ class ProviderSerializer(serializers.ModelSerializer):
         return f"{obj.rate_limit_per_minute}/мин, {obj.rate_limit_per_hour}/час"
 
     def get_usage_stats(self, obj):
-        try:
-            latest_usage = obj.usage_stats.order_by("-date").first()
-            if latest_usage:
-                return {
-                    "success_rate": latest_usage.success_rate,
-                    "last_update": latest_usage.date,
-                    "total_requests": latest_usage.requests_count,
-                }
-        except:
-            pass
+        latest_usage = obj.usage_stats.order_by("-date").first()
+        if latest_usage:
+            return {
+                "success_rate": latest_usage.success_rate,
+                "last_update": latest_usage.date,
+                "total_requests": latest_usage.requests_count,
+            }
         return None
 
     def validate(self, data):
@@ -92,7 +89,7 @@ class TestProviderSerializer(serializers.Serializer):
             Provider.objects.get(id=value)
             return value
         except Provider.DoesNotExist:
-            raise serializers.ValidationError("Провайдер не найден")
+            raise serializers.ValidationError("Провайдер не найден") from None
 
 
 class ProviderStatsSerializer(serializers.Serializer):
@@ -104,4 +101,4 @@ class ProviderStatsSerializer(serializers.Serializer):
             Provider.objects.get(id=value)
             return value
         except Provider.DoesNotExist:
-            raise serializers.ValidationError("Провайдер не найден")
+            raise serializers.ValidationError("Провайдер не найден") from None

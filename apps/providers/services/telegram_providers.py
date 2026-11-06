@@ -26,9 +26,8 @@ class TelegramProvider(BaseProvider):
                 raise ValueError("Telegram бот токен не настроен")
 
             chat_id = recipient
-            if not chat_id.isdigit() and not chat_id.startswith("-"):
-                if chat_id.startswith("@"):
-                    chat_id = chat_id[1:]
+            if chat_id.startswith("@"):
+                chat_id = chat_id[1:]
 
             telegram_message = message
             if subject:
@@ -76,7 +75,7 @@ class TelegramProvider(BaseProvider):
             logger.error(f"Telegram ошибка запроса для чата {recipient}: {str(e)}")
             return {"success": False, "error": error_msg, "provider": self.provider_name}
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             error_msg = f"Telegram неожиданная ошибка: {str(e)}"
             logger.error(f"Telegram неожиданная ошибка для чата {recipient}: {str(e)}")
             return {"success": False, "error": error_msg, "provider": self.provider_name}
@@ -119,7 +118,7 @@ class TelegramProvider(BaseProvider):
                     "error": response_data.get("description", "Ошибка получения информации о боте"),
                 }
 
-        except Exception as e:
+        except (requests.exceptions.RequestException, ValueError, KeyError) as e:
             logger.error(f"Ошибка получения информации о Telegram боте: {str(e)}")
             return {"success": False, "error": f"Ошибка получения информации о боте: {str(e)}"}
 

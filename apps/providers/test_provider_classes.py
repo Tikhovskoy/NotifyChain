@@ -161,7 +161,7 @@ class SendGridProviderTest(SimpleTestCase):
         for error, fragment in [
             (requests.exceptions.Timeout(), "таймаут"),
             (requests.exceptions.ConnectionError("no route"), "no route"),
-            (RuntimeError("странно"), "странно"),
+            (ValueError("странно"), "странно"),
         ]:
             with self.subTest(error=type(error).__name__):
                 with mock.patch("requests.post", side_effect=error):
@@ -274,7 +274,7 @@ class TwilioProviderTest(SimpleTestCase):
         )
         self.assertFalse(provider.get_delivery_status("SM1")["success"])
 
-        self.client.messages.return_value.fetch.side_effect = RuntimeError("boom")
+        self.client.messages.return_value.fetch.side_effect = ConnectionError("boom")
         self.assertFalse(provider.get_delivery_status("SM1")["success"])
 
         self.assertFalse(self.provider(EMPTY_ENV).get_delivery_status("SM1")["success"])

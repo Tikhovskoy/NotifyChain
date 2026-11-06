@@ -78,7 +78,9 @@ class ProviderManager:
                 logger.info(f"Успешно отправлено через провайдер {provider_model.name}")
                 return response
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
+                # Граница fallback: код провайдера может бросить что угодно, а сообщение должно
+                # уйти через следующего. Ошибка учитывается в статистике и логе.
                 duration = (timezone.now() - start_time).total_seconds()
                 self.usage_recorder.record(provider_model, success=False, duration=duration)
 
@@ -120,7 +122,8 @@ class ProviderManager:
             report = provider_instance.validate_config()
             test_result["config_valid"] = bool(report.get("is_valid"))
             test_result["errors"].extend(report.get("errors", []))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
+            # Диагностика провайдера: любую ошибку нужно показать в отчёте, а не уронить проверку
             test_result["errors"].append(f"Config validation failed: {str(e)}")
 
         if test_result["config_valid"]:
@@ -130,7 +133,7 @@ class ProviderManager:
                     test_recipient, "Test message from NotifyChain", "Test notification"
                 )
                 test_result["connection_test"] = response.get("success", False)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 test_result["errors"].append(f"Connection test failed: {str(e)}")
 
         return test_result

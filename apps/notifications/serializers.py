@@ -228,7 +228,7 @@ class TemplatePreviewSerializer(serializers.Serializer):
             NotificationTemplate.objects.get(id=value)
             return value
         except NotificationTemplate.DoesNotExist:
-            raise serializers.ValidationError("Шаблон не найден")
+            raise serializers.ValidationError("Шаблон не найден") from None
 
 
 class NotificationStatsSerializer(serializers.Serializer):
@@ -241,5 +241,5 @@ class NotificationStatsSerializer(serializers.Serializer):
                 User.objects.get(id=value)
                 return value
             except User.DoesNotExist:
-                raise serializers.ValidationError("Пользователь не найден")
+                raise serializers.ValidationError("Пользователь не найден") from None
         return value

@@ -5,6 +5,7 @@ from celery import shared_task
 from django.utils import timezone
 
 from apps.monitoring.models import PerformanceLog
+from apps.notifications.exceptions import NotificationException
 from apps.notifications.models import Notification
 from apps.notifications.services import NotificationService
 from apps.notifications.utils import NotificationHelper
@@ -78,7 +79,8 @@ def send_notification_task(self, notification_id: int) -> dict[str, Any]:
         logger.error(error_msg)
         return {"success": False, "notification_id": notification_id, "error": error_msg}
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
+        # Граница задачи Celery: любой сбой фиксируется в PerformanceLog и приводит к повтору
         duration = (timezone.now() - start_time).total_seconds()
 
         PerformanceLog.objects.create(
@@ -94,7 +96,7 @@ def send_notification_task(self, notification_id: int) -> dict[str, Any]:
         if self.request.retries < self.max_retries:
             countdown = min(60 * (2**self.request.retries), 3600)
             logger.info(f"Повтор задачи для уведомления {notification_id} через {countdown} секунд")
-            raise self.retry(countdown=countdown, exc=exc)
+            raise self.retry(countdown=countdown, exc=exc) from exc
 
         return {
             "success": False,
@@ -260,7 +262,7 @@ def test_provider_connectivity() -> dict[str, Any]:
                     "errors": test_result.get("errors", []),
                 }
             )
-        except Exception as e:
+        except (NotificationException, Provider.DoesNotExist) as e:
             results.append(
                 {
                     "provider_id": provider.id,

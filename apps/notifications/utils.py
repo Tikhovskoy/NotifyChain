@@ -3,6 +3,7 @@ from datetime import timedelta
 from typing import Any
 
 from django.contrib.auth.models import User
+from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 
 from .exceptions import ValidationException
@@ -104,9 +105,8 @@ class NotificationHelper:
         time_threshold = timezone.now() - timedelta(minutes=time_window_minutes)
 
         try:
-            preferences = user.notification_preferences
-            limit = preferences.frequency_limit
-        except:
+            limit = user.notification_preferences.frequency_limit
+        except ObjectDoesNotExist:
             limit = 50
 
         recent_count = Notification.objects.filter(
@@ -120,14 +120,13 @@ class NotificationHelper:
 
         try:
             preferences = user.notification_preferences
-            if not preferences.quiet_hours_start or not preferences.quiet_hours_end:
-                return False
-
-            current_time = timezone.now().time()
-            return preferences.is_quiet_time(current_time)
-
-        except:
+        except ObjectDoesNotExist:
             return False
+
+        if not preferences.quiet_hours_start or not preferences.quiet_hours_end:
+            return False
+
+        return preferences.is_quiet_time(timezone.now().time())
 
     @staticmethod
     def get_pending_notifications(

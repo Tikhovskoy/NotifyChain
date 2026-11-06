@@ -1,13 +1,17 @@
 import logging
 from typing import Any
 
+import requests
 from decouple import config
-from twilio.base.exceptions import TwilioRestException
+from twilio.base.exceptions import TwilioException, TwilioRestException
 from twilio.rest import Client
 
 from .base_provider import BaseProvider
 
 logger = logging.getLogger(__name__)
+
+# Сбои транспорта, которые Twilio SDK и requests не оборачивают в TwilioRestException
+TWILIO_TRANSPORT_ERRORS = (TwilioException, requests.exceptions.RequestException, OSError)
 
 
 class TwilioSMSProvider(BaseProvider):
@@ -24,7 +28,7 @@ class TwilioSMSProvider(BaseProvider):
         if self.account_sid and self.auth_token:
             try:
                 self.client = Client(self.account_sid, self.auth_token)
-            except Exception as e:
+            except TwilioException as e:
                 logger.error(f"Ошибка инициализации Twilio клиента: {str(e)}")
 
     def send_notification(
@@ -75,7 +79,7 @@ class TwilioSMSProvider(BaseProvider):
             logger.error(f"Twilio ошибка конфигурации: {str(e)}")
             return {"success": False, "error": error_msg, "provider": self.provider_name}
 
-        except Exception as e:
+        except TWILIO_TRANSPORT_ERRORS as e:
             error_msg = f"Twilio неожиданная ошибка: {str(e)}"
             logger.error(f"Twilio неожиданная ошибка для {recipient}: {str(e)}")
             return {"success": False, "error": error_msg, "provider": self.provider_name}
@@ -129,7 +133,7 @@ class TwilioSMSProvider(BaseProvider):
                 "error_code": e.code,
             }
 
-        except Exception as e:
+        except (ValueError, *TWILIO_TRANSPORT_ERRORS) as e:
             logger.error(f"Неожиданная ошибка получения статуса Twilio {message_id}: {str(e)}")
             return {"success": False, "error": f"Неожиданная ошибка: {str(e)}"}
 

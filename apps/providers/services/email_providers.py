@@ -71,7 +71,7 @@ class SMTPEmailProvider(BaseProvider):
             logger.error(f"SMTP получатель {recipient} отклонен")
             return {"success": False, "error": error_msg, "provider": self.provider_name}
 
-        except Exception as e:
+        except (smtplib.SMTPException, OSError, ValueError) as e:
             error_msg = f"SMTP ошибка отправки: {str(e)}"
             logger.error(f"SMTP ошибка отправки на {recipient}: {str(e)}")
             return {"success": False, "error": error_msg, "provider": self.provider_name}
@@ -176,7 +176,7 @@ class SendGridEmailProvider(BaseProvider):
             logger.error(f"SendGrid ошибка запроса для {recipient}: {str(e)}")
             return {"success": False, "error": error_msg, "provider": self.provider_name}
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError) as e:
             error_msg = f"SendGrid неожиданная ошибка: {str(e)}"
             logger.error(f"SendGrid неожиданная ошибка для {recipient}: {str(e)}")
             return {"success": False, "error": error_msg, "provider": self.provider_name}

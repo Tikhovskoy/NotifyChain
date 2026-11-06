@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.users.models import NotificationPreference, UserProfile
 
 from ..exceptions import (
+    NotificationException,
     NotificationNotReadyException,
     UserPreferenceException,
     ValidationException,
@@ -102,7 +103,9 @@ class NotificationService:
                 notification.save()
                 return success
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
+            # Граница доставки: любой сбой не должен ронять вызывающего (API, задачу Celery),
+            # он фиксируется в самом уведомлении и в его журнале.
             logger.error(f"Ошибка отправки уведомления {notification.id}: {str(e)}")
             notification.status = "failed"
             notification.error_message = str(e)
@@ -148,7 +151,7 @@ class NotificationService:
                     priority=priority,
                 )
                 notifications.append(notification)
-            except Exception as e:
+            except NotificationException as e:
                 logger.error(f"Ошибка создания уведомления для {recipient.username}: {str(e)}")
                 continue
 
@@ -320,21 +323,14 @@ class NotificationService:
 
             logger.info(f"Пытаюсь отправить уведомление {notification.id} через канал {channel}")
 
-            try:
-                success = self._try_send_via_channel(notification, channel, recipient_address)
-
-                if success:
-                    if channel != notification.channel:
-                        logger.info(
-                            f"Успешный fallback для уведомления {notification.id}: {notification.channel} → {channel}"
-                        )
-                        notification.channel = channel
-                        notification.recipient_address = recipient_address
-                    return True
-
-            except Exception as e:
-                logger.warning(f"Ошибка отправки через {channel}: {str(e)}")
-                continue
+            if self._try_send_via_channel(notification, channel, recipient_address):
+                if channel != notification.channel:
+                    logger.info(
+                        f"Успешный fallback для уведомления {notification.id}: {notification.channel} → {channel}"
+                    )
+                    notification.channel = channel
+                    notification.recipient_address = recipient_address
+                return True
 
         logger.error(f"Все каналы недоступны для уведомления {notification.id}")
         return False
@@ -375,7 +371,7 @@ class NotificationService:
 
             return response.get("success", False)
 
-        except Exception as e:
+        except NotificationException as e:
             logger.error(f"Ошибка доставки уведомления {notification.id} через {channel}: {str(e)}")
             notification.error_message = str(e)
             return False
