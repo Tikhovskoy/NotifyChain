@@ -9,6 +9,7 @@ SECRET_CONFIG = {"class_name": "smtp", "password": "s3cret-value"}
 
 class ProviderConfigIsWriteOnlyTest(TokenAPITestCase):
     def setUp(self):
+        super().setUp()
         admin = User.objects.create_user("admin", is_staff=True)
         self.api = self.client_for(admin)
         self.provider = Provider.objects.create(

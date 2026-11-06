@@ -82,6 +82,7 @@ class AnonymousAccessTest(TokenAPITestCase):
 
 class RegularUserAccessTest(TokenAPITestCase):
     def setUp(self):
+        super().setUp()
         self.user = User.objects.create_user("client", email="client@example.com")
         self.client_api = self.client_for(self.user)
         self.template = NotificationTemplate.objects.create(**{**TEMPLATE_PAYLOAD, "name": "base"})
@@ -157,6 +158,7 @@ class RegularUserAccessTest(TokenAPITestCase):
 
 class StaffAccessTest(TokenAPITestCase):
     def setUp(self):
+        super().setUp()
         self.admin = User.objects.create_user("admin", is_staff=True)
         self.client_api = self.client_for(self.admin)
 

@@ -9,6 +9,7 @@ class NotificationScopingTest(TokenAPITestCase):
     """Обычный пользователь видит только свои уведомления, администратор — все."""
 
     def setUp(self):
+        super().setUp()
         self.alice = User.objects.create_user("alice", email="alice@example.com")
         self.bob = User.objects.create_user("bob", email="bob@example.com")
         self.admin = User.objects.create_user("admin", is_staff=True)
