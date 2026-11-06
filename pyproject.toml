@@ -1,0 +1,29 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["**/migrations/*.py"]
+
+[tool.ruff.lint]
+select = [
+    "E4", "E7", "E9",  # pycodestyle: ошибки импортов, операторов и синтаксиса
+    "F",               # pyflakes
+    "W",               # pycodestyle: предупреждения
+    "I",               # isort
+    "UP",              # pyupgrade
+    "B",               # flake8-bugbear
+    "BLE",             # слепой except Exception
+    "SIM",             # flake8-simplify
+    "C4",              # flake8-comprehensions
+    "DJ",              # flake8-django
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "notifychain", "tasks"]
+
+[tool.coverage.run]
+source = ["apps"]
+omit = ["*/migrations/*", "*/tests.py", "*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
