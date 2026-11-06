@@ -3,8 +3,10 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from apps.permissions import IsStaffOrReadOnly
 
 from .models import Notification, NotificationTemplate
 from .serializers import (
@@ -22,14 +24,16 @@ from .utils import NotificationHelper
 class NotificationTemplateViewSet(viewsets.ModelViewSet):
     queryset = NotificationTemplate.objects.all()
     serializer_class = NotificationTemplateSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsStaffOrReadOnly]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["template_type", "is_active"]
     search_fields = ["name", "subject", "body"]
     ordering_fields = ["name", "created_at", "updated_at"]
     ordering = ["-created_at"]
 
-    @action(detail=True, methods=["post"])
+    # preview и validate_template только считают результат и ничего не сохраняют,
+    # поэтому доступны любому аутентифицированному пользователю, хотя это POST.
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def preview(self, request, pk=None):
         template = self.get_object()
         serializer = TemplatePreviewSerializer(data=request.data)
@@ -59,7 +63,7 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def validate_template(self, request, pk=None):
         template = self.get_object()
         template_service = TemplateService()
@@ -81,7 +85,6 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
-    permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["status", "channel", "priority"]
     search_fields = ["subject", "recipient__username", "recipient_address"]
@@ -91,10 +94,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
 
-        if self.request.user.is_authenticated and not self.request.user.is_staff:
+        if not self.request.user.is_staff:
             queryset = queryset.filter(recipient=self.request.user)
-        elif not self.request.user.is_authenticated:
-            queryset = queryset.none()
 
         return queryset.select_related("recipient", "template").prefetch_related("logs")
 

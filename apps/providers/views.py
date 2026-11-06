@@ -2,7 +2,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from .models import Provider, ProviderUsage
@@ -16,25 +16,16 @@ from .services import ProviderManager
 class ProviderViewSet(viewsets.ModelViewSet):
     queryset = Provider.objects.all()
     serializer_class = ProviderSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAdminUser]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = ["provider_type", "is_active", "is_default"]
     search_fields = ["name"]
     ordering_fields = ["name", "provider_type", "priority", "created_at"]
     ordering = ["provider_type", "priority"]
 
-    def get_permissions(self):
-        return [AllowAny()]
-
     @action(detail=True, methods=["post"])
     def test(self, request, pk=None):
         provider = self.get_object()
-
-        if not request.user.is_staff:
-            return Response(
-                {"error": "Только администраторы могут тестировать провайдеры"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
 
         provider_manager = ProviderManager()
 
@@ -110,7 +101,7 @@ class ProviderViewSet(viewsets.ModelViewSet):
 class ProviderUsageViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ProviderUsage.objects.all()
     serializer_class = ProviderUsageSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAdminUser]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ["provider", "date", "hour"]
     ordering_fields = ["date", "hour", "requests_count", "success_rate"]
