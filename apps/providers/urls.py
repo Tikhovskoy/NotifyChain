@@ -1,6 +1,7 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from .views import ProviderViewSet, ProviderUsageViewSet
+
+from .views import ProviderUsageViewSet, ProviderViewSet
 
 router = DefaultRouter()
 router.register(r"providers", ProviderViewSet)

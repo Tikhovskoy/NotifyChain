@@ -1,11 +1,12 @@
 import logging
-from typing import Dict, Any, List, Optional
+from datetime import timedelta
+from typing import Any
+
 from django.contrib.auth.models import User
 from django.utils import timezone
-from datetime import timedelta
 
+from .exceptions import ValidationException
 from .models import Notification
-from .exceptions import ValidationException, UserPreferenceException
 
 logger = logging.getLogger("notifychain.notifications")
 
@@ -64,7 +65,7 @@ class NotificationValidator:
 
 class NotificationHelper:
     @staticmethod
-    def get_user_notification_stats(user: User) -> Dict[str, Any]:
+    def get_user_notification_stats(user: User) -> dict[str, Any]:
 
         today = timezone.now().date()
         week_ago = today - timedelta(days=7)
@@ -129,14 +130,14 @@ class NotificationHelper:
             return False
 
     @staticmethod
-    def get_pending_notifications(limit: int = 100) -> List[Notification]:
+    def get_pending_notifications(limit: int = 100) -> list[Notification]:
 
         return list(
             Notification.objects.filter(status="pending").order_by("priority", "created_at")[:limit]
         )
 
     @staticmethod
-    def get_failed_notifications_for_retry(limit: int = 50) -> List[Notification]:
+    def get_failed_notifications_for_retry(limit: int = 50) -> list[Notification]:
 
         return list(
             Notification.objects.filter(status="failed")
@@ -157,7 +158,7 @@ class NotificationHelper:
         return deleted_count
 
     @staticmethod
-    def format_notification_for_display(notification: Notification) -> Dict[str, Any]:
+    def format_notification_for_display(notification: Notification) -> dict[str, Any]:
 
         return {
             "id": notification.id,

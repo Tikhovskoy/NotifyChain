@@ -1,19 +1,19 @@
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.contrib.auth.models import User
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 
 from .models import Notification, NotificationTemplate
 from .serializers import (
+    BulkNotificationSerializer,
     NotificationSerializer,
+    NotificationStatsSerializer,
     NotificationTemplateSerializer,
     SendNotificationSerializer,
-    BulkNotificationSerializer,
     TemplatePreviewSerializer,
-    NotificationStatsSerializer,
 )
 from .services import NotificationService, TemplateService
 from .utils import NotificationHelper
@@ -267,9 +267,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 user = User.objects.get(id=user_id)
                 stats = NotificationHelper.get_user_notification_stats(user)
             else:
+                from datetime import timedelta
+
                 from django.db.models import Count
                 from django.utils import timezone
-                from datetime import timedelta
 
                 end_date = timezone.now().date()
                 start_date = end_date - timedelta(days=days)

@@ -1,6 +1,5 @@
 from celery import Celery
 from celery.schedules import crontab
-from django.conf import settings
 
 app = Celery("notifychain")
 

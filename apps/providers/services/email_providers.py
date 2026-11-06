@@ -1,8 +1,8 @@
-import smtplib
 import logging
-from email.mime.text import MIMEText
+import smtplib
 from email.mime.multipart import MIMEMultipart
-from typing import Dict, Any
+from email.mime.text import MIMEText
+from typing import Any
 
 import requests
 from decouple import config
@@ -26,8 +26,8 @@ class SMTPEmailProvider(BaseProvider):
         self.from_email = config("FROM_EMAIL", default=self.smtp_username)
 
     def send_notification(
-        self, recipient: str, message: str, subject: str = "", metadata: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
+        self, recipient: str, message: str, subject: str = "", metadata: dict[str, Any] = None
+    ) -> dict[str, Any]:
         try:
             if not self.smtp_username or not self.smtp_password:
                 raise ValueError("SMTP учетные данные не настроены")
@@ -76,7 +76,7 @@ class SMTPEmailProvider(BaseProvider):
             logger.error(f"SMTP ошибка отправки на {recipient}: {str(e)}")
             return {"success": False, "error": error_msg, "provider": self.provider_name}
 
-    def validate_config(self) -> Dict[str, Any]:
+    def validate_config(self) -> dict[str, Any]:
         errors = []
 
         if not self.smtp_host:
@@ -102,7 +102,7 @@ class SMTPEmailProvider(BaseProvider):
             },
         }
 
-    def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
+    def get_delivery_status(self, message_id: str) -> dict[str, Any]:
         return {
             "status": "unknown",
             "message": "SMTP не предоставляет статус доставки",
@@ -121,8 +121,8 @@ class SendGridEmailProvider(BaseProvider):
         self.api_url = "https://api.sendgrid.com/v3/mail/send"
 
     def send_notification(
-        self, recipient: str, message: str, subject: str = "", metadata: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
+        self, recipient: str, message: str, subject: str = "", metadata: dict[str, Any] = None
+    ) -> dict[str, Any]:
         try:
             if not self.api_key:
                 raise ValueError("SendGrid API ключ не настроен")
@@ -181,7 +181,7 @@ class SendGridEmailProvider(BaseProvider):
             logger.error(f"SendGrid неожиданная ошибка для {recipient}: {str(e)}")
             return {"success": False, "error": error_msg, "provider": self.provider_name}
 
-    def validate_config(self) -> Dict[str, Any]:
+    def validate_config(self) -> dict[str, Any]:
         errors = []
 
         if not self.api_key:
@@ -196,7 +196,7 @@ class SendGridEmailProvider(BaseProvider):
             "config": {"from_email": self.from_email, "api_configured": bool(self.api_key)},
         }
 
-    def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
+    def get_delivery_status(self, message_id: str) -> dict[str, Any]:
         return {
             "status": "unknown",
             "message": "Требуется отдельный API запрос к SendGrid",

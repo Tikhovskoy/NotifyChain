@@ -1,12 +1,12 @@
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
 import logging
+from abc import ABC, abstractmethod
+from typing import Any
 
 logger = logging.getLogger("notifychain.providers")
 
 
 class BaseProvider(ABC):
-    def __init__(self, provider_config: Dict[str, Any] = None):
+    def __init__(self, provider_config: dict[str, Any] = None):
         self.config = provider_config or {}
         self.name = self.config.get("name", "Unknown")
         self.provider_type = getattr(self, "provider_type", "unknown")
@@ -16,8 +16,8 @@ class BaseProvider(ABC):
         recipient: str,
         message: str,
         subject: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
 
         return self.send_notification(recipient, message, subject, metadata)
 
@@ -27,22 +27,22 @@ class BaseProvider(ABC):
         recipient: str,
         message: str,
         subject: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
 
         pass
 
     @abstractmethod
-    def validate_config(self) -> Dict[str, Any]:
+    def validate_config(self) -> dict[str, Any]:
 
         pass
 
     @abstractmethod
-    def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
+    def get_delivery_status(self, message_id: str) -> dict[str, Any]:
 
         pass
 
-    def get_rate_limit_info(self) -> Dict[str, int]:
+    def get_rate_limit_info(self) -> dict[str, int]:
 
         return {
             "requests_per_minute": self.config.get("rate_limit_per_minute", 60),
@@ -54,13 +54,13 @@ class BaseProvider(ABC):
         return recipient
 
     def prepare_message(
-        self, message: str, subject: str = "", metadata: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, message: str, subject: str = "", metadata: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
 
         return {"message": message, "subject": subject, "metadata": metadata or {}}
 
     def log_send_attempt(
-        self, recipient: str, success: bool, response: Dict[str, Any], error: Optional[str] = None
+        self, recipient: str, success: bool, response: dict[str, Any], error: str | None = None
     ):
 
         if success:
@@ -78,8 +78,8 @@ class MockEmailProvider(BaseProvider):
         recipient: str,
         message: str,
         subject: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
 
         logger.info(f"Mock Email: Отправка '{subject}' к {recipient}")
 
@@ -94,10 +94,10 @@ class MockEmailProvider(BaseProvider):
         self.log_send_attempt(recipient, True, response)
         return response
 
-    def validate_config(self) -> Dict[str, Any]:
+    def validate_config(self) -> dict[str, Any]:
         return {"is_valid": True, "errors": []}
 
-    def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
+    def get_delivery_status(self, message_id: str) -> dict[str, Any]:
         return {"status": "delivered", "delivered_at": "mock_timestamp", "message_id": message_id}
 
 
@@ -110,8 +110,8 @@ class MockSMSProvider(BaseProvider):
         recipient: str,
         message: str,
         subject: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
 
         logger.info(f"Mock SMS: Отправка к {recipient}: {message[:50]}...")
 
@@ -126,10 +126,10 @@ class MockSMSProvider(BaseProvider):
         self.log_send_attempt(recipient, True, response)
         return response
 
-    def validate_config(self) -> Dict[str, Any]:
+    def validate_config(self) -> dict[str, Any]:
         return {"is_valid": True, "errors": []}
 
-    def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
+    def get_delivery_status(self, message_id: str) -> dict[str, Any]:
         return {"status": "delivered", "delivered_at": "mock_timestamp", "message_id": message_id}
 
 
@@ -142,8 +142,8 @@ class MockPushProvider(BaseProvider):
         recipient: str,
         message: str,
         subject: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
 
         logger.info(f"Mock Push: Отправка '{subject}' на устройство {recipient}")
 
@@ -158,8 +158,8 @@ class MockPushProvider(BaseProvider):
         self.log_send_attempt(recipient, True, response)
         return response
 
-    def validate_config(self) -> Dict[str, Any]:
+    def validate_config(self) -> dict[str, Any]:
         return {"is_valid": True, "errors": []}
 
-    def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
+    def get_delivery_status(self, message_id: str) -> dict[str, Any]:
         return {"status": "delivered", "delivered_at": "mock_timestamp", "message_id": message_id}

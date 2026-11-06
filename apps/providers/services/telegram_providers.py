@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any
+from typing import Any
 
 import requests
 from decouple import config
@@ -19,8 +19,8 @@ class TelegramProvider(BaseProvider):
         self.api_url = f"https://api.telegram.org/bot{self.bot_token}"
 
     def send_notification(
-        self, recipient: str, message: str, subject: str = "", metadata: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
+        self, recipient: str, message: str, subject: str = "", metadata: dict[str, Any] = None
+    ) -> dict[str, Any]:
         try:
             if not self.bot_token:
                 raise ValueError("Telegram бот токен не настроен")
@@ -81,7 +81,7 @@ class TelegramProvider(BaseProvider):
             logger.error(f"Telegram неожиданная ошибка для чата {recipient}: {str(e)}")
             return {"success": False, "error": error_msg, "provider": self.provider_name}
 
-    def validate_config(self) -> Dict[str, Any]:
+    def validate_config(self) -> dict[str, Any]:
         errors = []
 
         if not self.bot_token:
@@ -93,7 +93,7 @@ class TelegramProvider(BaseProvider):
             "config": {"bot_configured": bool(self.bot_token)},
         }
 
-    def get_bot_info(self) -> Dict[str, Any]:
+    def get_bot_info(self) -> dict[str, Any]:
         try:
             if not self.bot_token:
                 raise ValueError("Telegram бот токен не настроен")
@@ -123,7 +123,7 @@ class TelegramProvider(BaseProvider):
             logger.error(f"Ошибка получения информации о Telegram боте: {str(e)}")
             return {"success": False, "error": f"Ошибка получения информации о боте: {str(e)}"}
 
-    def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
+    def get_delivery_status(self, message_id: str) -> dict[str, Any]:
         return {
             "status": "delivered",
             "message": "Telegram сообщения доставляются мгновенно",

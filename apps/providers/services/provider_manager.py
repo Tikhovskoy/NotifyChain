@@ -1,14 +1,16 @@
 import logging
-from typing import Dict, Any, List, Optional, Type
-from django.utils import timezone
 from datetime import timedelta
+from typing import Any
+
+from django.utils import timezone
+
+from apps.notifications.exceptions import ProviderException
 
 from ..models import Provider, ProviderUsage
-from .base_provider import BaseProvider, MockEmailProvider, MockSMSProvider, MockPushProvider
-from .email_providers import SMTPEmailProvider, SendGridEmailProvider
+from .base_provider import BaseProvider, MockEmailProvider, MockPushProvider, MockSMSProvider
+from .email_providers import SendGridEmailProvider, SMTPEmailProvider
 from .sms_providers import TwilioSMSProvider
 from .telegram_providers import TelegramProvider
-from apps.notifications.exceptions import ProviderException, RateLimitException
 
 logger = logging.getLogger("notifychain.providers")
 
@@ -26,7 +28,7 @@ class ProviderManager:
         }
         self._provider_instances = {}
 
-    def get_provider(self, channel: str, provider_name: Optional[str] = None) -> BaseProvider:
+    def get_provider(self, channel: str, provider_name: str | None = None) -> BaseProvider:
 
         if provider_name:
             provider = self._get_provider_by_name(provider_name)
@@ -47,9 +49,9 @@ class ProviderManager:
         recipient: str,
         message: str,
         subject: str = "",
-        metadata: Optional[Dict[str, Any]] = None,
-        provider_name: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+        provider_name: str | None = None,
+    ) -> dict[str, Any]:
 
         if provider_name:
             providers_to_try = [self._get_provider_by_name(provider_name)]
@@ -106,13 +108,13 @@ class ProviderManager:
         logger.error(error_msg)
         raise ProviderException(error_msg)
 
-    def get_available_providers(self, channel: str) -> List[Provider]:
+    def get_available_providers(self, channel: str) -> list[Provider]:
 
         return list(
             Provider.objects.filter(provider_type=channel, is_active=True).order_by("priority")
         )
 
-    def get_provider_statistics(self, provider_id: int, days: int = 7) -> Dict[str, Any]:
+    def get_provider_statistics(self, provider_id: int, days: int = 7) -> dict[str, Any]:
 
         provider = Provider.objects.get(id=provider_id)
         start_date = timezone.now().date() - timedelta(days=days)
@@ -153,7 +155,7 @@ class ProviderManager:
             ],
         }
 
-    def test_provider(self, provider_id: int) -> Dict[str, Any]:
+    def test_provider(self, provider_id: int) -> dict[str, Any]:
 
         provider = Provider.objects.get(id=provider_id)
         provider_instance = self._get_provider_instance(provider)
@@ -183,18 +185,18 @@ class ProviderManager:
 
         return test_result
 
-    def register_provider_class(self, name: str, provider_class: Type[BaseProvider]):
+    def register_provider_class(self, name: str, provider_class: type[BaseProvider]):
 
         self._provider_classes[name] = provider_class
         logger.info(f"Зарегистрирован класс провайдера {name}")
 
-    def _get_provider_by_name(self, name: str) -> Optional[Provider]:
+    def _get_provider_by_name(self, name: str) -> Provider | None:
         try:
             return Provider.objects.get(name=name, is_active=True)
         except Provider.DoesNotExist:
             return None
 
-    def _get_default_provider(self, channel: str) -> Optional[Provider]:
+    def _get_default_provider(self, channel: str) -> Provider | None:
         try:
             return Provider.objects.get(provider_type=channel, is_default=True, is_active=True)
         except Provider.DoesNotExist:

@@ -1,19 +1,20 @@
 import logging
+from typing import Any
+
 from celery import shared_task
 from django.utils import timezone
-from typing import Dict, Any, List
 
+from apps.monitoring.models import PerformanceLog
 from apps.notifications.models import Notification
 from apps.notifications.services import NotificationService
 from apps.notifications.utils import NotificationHelper
 from apps.providers.services import ProviderManager
-from apps.monitoring.models import PerformanceLog
 
 logger = logging.getLogger("notifychain.tasks")
 
 
 @shared_task(bind=True, max_retries=3)
-def send_notification_task(self, notification_id: int) -> Dict[str, Any]:
+def send_notification_task(self, notification_id: int) -> dict[str, Any]:
     start_time = timezone.now()
 
     try:
@@ -104,7 +105,7 @@ def send_notification_task(self, notification_id: int) -> Dict[str, Any]:
 
 
 @shared_task
-def send_bulk_notifications_task(notification_ids: List[int]) -> Dict[str, Any]:
+def send_bulk_notifications_task(notification_ids: list[int]) -> dict[str, Any]:
     start_time = timezone.now()
     results = []
 
@@ -139,7 +140,7 @@ def send_bulk_notifications_task(notification_ids: List[int]) -> Dict[str, Any]:
 
 
 @shared_task
-def process_scheduled_notifications() -> Dict[str, Any]:
+def process_scheduled_notifications() -> dict[str, Any]:
     start_time = timezone.now()
 
     scheduled_notifications = Notification.objects.filter(
@@ -159,7 +160,7 @@ def process_scheduled_notifications() -> Dict[str, Any]:
 
 
 @shared_task
-def retry_failed_notifications() -> Dict[str, Any]:
+def retry_failed_notifications() -> dict[str, Any]:
     start_time = timezone.now()
 
     failed_notifications = NotificationHelper.get_failed_notifications_for_retry(100)
@@ -178,7 +179,7 @@ def retry_failed_notifications() -> Dict[str, Any]:
 
 
 @shared_task
-def cleanup_old_notifications() -> Dict[str, Any]:
+def cleanup_old_notifications() -> dict[str, Any]:
     start_time = timezone.now()
 
     deleted_count = NotificationHelper.cleanup_old_notifications(days=90)
@@ -191,9 +192,10 @@ def cleanup_old_notifications() -> Dict[str, Any]:
 
 
 @shared_task
-def collect_system_metrics() -> Dict[str, Any]:
-    from apps.monitoring.models import SystemMetrics
+def collect_system_metrics() -> dict[str, Any]:
     from django.db.models import Count
+
+    from apps.monitoring.models import SystemMetrics
 
     start_time = timezone.now()
 
@@ -238,7 +240,7 @@ def collect_system_metrics() -> Dict[str, Any]:
 
 
 @shared_task
-def test_provider_connectivity() -> Dict[str, Any]:
+def test_provider_connectivity() -> dict[str, Any]:
     from apps.providers.models import Provider
 
     start_time = timezone.now()

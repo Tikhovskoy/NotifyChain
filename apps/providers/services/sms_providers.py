@@ -1,9 +1,9 @@
 import logging
-from typing import Dict, Any
+from typing import Any
 
 from decouple import config
-from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
+from twilio.rest import Client
 
 from .base_provider import BaseProvider
 
@@ -28,8 +28,8 @@ class TwilioSMSProvider(BaseProvider):
                 logger.error(f"Ошибка инициализации Twilio клиента: {str(e)}")
 
     def send_notification(
-        self, recipient: str, message: str, subject: str = "", metadata: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
+        self, recipient: str, message: str, subject: str = "", metadata: dict[str, Any] = None
+    ) -> dict[str, Any]:
         try:
             if not self.client:
                 raise ValueError("Twilio клиент не инициализирован")
@@ -80,7 +80,7 @@ class TwilioSMSProvider(BaseProvider):
             logger.error(f"Twilio неожиданная ошибка для {recipient}: {str(e)}")
             return {"success": False, "error": error_msg, "provider": self.provider_name}
 
-    def validate_config(self) -> Dict[str, Any]:
+    def validate_config(self) -> dict[str, Any]:
         errors = []
 
         if not self.account_sid:
@@ -104,7 +104,7 @@ class TwilioSMSProvider(BaseProvider):
             },
         }
 
-    def get_message_status(self, message_id: str) -> Dict[str, Any]:
+    def get_message_status(self, message_id: str) -> dict[str, Any]:
         try:
             if not self.client:
                 raise ValueError("Twilio клиент не инициализирован")
@@ -133,5 +133,5 @@ class TwilioSMSProvider(BaseProvider):
             logger.error(f"Неожиданная ошибка получения статуса Twilio {message_id}: {str(e)}")
             return {"success": False, "error": f"Неожиданная ошибка: {str(e)}"}
 
-    def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
+    def get_delivery_status(self, message_id: str) -> dict[str, Any]:
         return self.get_message_status(message_id)

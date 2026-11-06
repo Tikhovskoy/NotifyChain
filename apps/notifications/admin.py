@@ -1,9 +1,8 @@
 from django.contrib import admin
-from django.utils.html import format_html
 from django.urls import reverse
-from django.utils import timezone
+from django.utils.html import format_html
 
-from .models import Notification, NotificationTemplate, NotificationLog
+from .models import Notification, NotificationLog, NotificationTemplate
 from .services import TemplateService
 
 
@@ -134,11 +133,11 @@ class NotificationAdmin(admin.ModelAdmin):
             actions = []
             if obj.can_retry():
                 actions.append(
-                    f"<button onclick=\"alert('Функция повтора будет добавлена')\">Повторить</button>"
+                    "<button onclick=\"alert('Функция повтора будет добавлена')\">Повторить</button>"
                 )
             if obj.status == "pending":
                 actions.append(
-                    f"<button onclick=\"alert('Функция отмены будет добавлена')\">Отменить</button>"
+                    "<button onclick=\"alert('Функция отмены будет добавлена')\">Отменить</button>"
                 )
             return format_html(" ".join(actions)) if actions else "Нет доступных действий"
         return "Сохраните уведомление для просмотра действий"

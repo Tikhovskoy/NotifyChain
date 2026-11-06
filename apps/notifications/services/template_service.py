@@ -1,7 +1,8 @@
 import logging
 import re
-from typing import Dict, Any, Optional
-from django.template import Template, Context
+from typing import Any
+
+from django.template import Context, Template
 from django.template.exceptions import TemplateSyntaxError
 
 from ..models import NotificationTemplate
@@ -11,8 +12,8 @@ logger = logging.getLogger("notifychain.notifications")
 
 class TemplateService:
     def render_template(
-        self, template: NotificationTemplate, context_data: Dict[str, Any]
-    ) -> Dict[str, str]:
+        self, template: NotificationTemplate, context_data: dict[str, Any]
+    ) -> dict[str, str]:
 
         try:
             subject = self._render_string(template.subject, context_data)
@@ -24,7 +25,7 @@ class TemplateService:
             logger.error(f"Ошибка рендеринга шаблона {template.name}: {str(e)}")
             raise ValueError(f"Ошибка рендеринга шаблона: {str(e)}")
 
-    def render_message(self, message_template: str, context_data: Dict[str, Any]) -> str:
+    def render_message(self, message_template: str, context_data: dict[str, Any]) -> str:
 
         try:
             return self._render_string(message_template, context_data)
@@ -32,7 +33,7 @@ class TemplateService:
             logger.error(f"Ошибка рендеринга шаблона сообщения: {str(e)}")
             raise ValueError(f"Ошибка рендеринга сообщения: {str(e)}")
 
-    def validate_template(self, template: NotificationTemplate) -> Dict[str, Any]:
+    def validate_template(self, template: NotificationTemplate) -> dict[str, Any]:
 
         validation_result = {
             "is_valid": True,
@@ -70,8 +71,8 @@ class TemplateService:
         return validation_result
 
     def get_template_preview(
-        self, template: NotificationTemplate, sample_data: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, str]:
+        self, template: NotificationTemplate, sample_data: dict[str, Any] | None = None
+    ) -> dict[str, str]:
 
         if sample_data is None:
             sample_data = self._generate_sample_data(template.variables)
@@ -87,7 +88,7 @@ class TemplateService:
         subject: str,
         body: str,
         template_type: str,
-        variables: Optional[list] = None,
+        variables: list | None = None,
     ) -> NotificationTemplate:
 
         if variables is None:
@@ -106,7 +107,7 @@ class TemplateService:
 
         return template
 
-    def _render_string(self, template_string: str, context_data: Dict[str, Any]) -> str:
+    def _render_string(self, template_string: str, context_data: dict[str, Any]) -> str:
 
         try:
             template = Template(template_string)
@@ -131,7 +132,7 @@ class TemplateService:
         except TemplateSyntaxError as e:
             raise ValueError(f"Неверный синтаксис Django шаблона: {str(e)}")
 
-    def _generate_sample_data(self, variables: list) -> Dict[str, Any]:
+    def _generate_sample_data(self, variables: list) -> dict[str, Any]:
 
         sample_data = {}
 

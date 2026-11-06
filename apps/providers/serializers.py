@@ -1,6 +1,6 @@
 from rest_framework import serializers
+
 from .models import Provider, ProviderUsage
-from .services import ProviderManager
 
 
 class ProviderSerializer(serializers.ModelSerializer):

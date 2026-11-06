@@ -1,12 +1,13 @@
 import logging
-from typing import Dict, Any, Optional, List
-from django.contrib.auth.models import User
-from django.utils import timezone
-from django.db import transaction
+from typing import Any
 
-from ..models import Notification, NotificationTemplate, NotificationLog
+from django.contrib.auth.models import User
+from django.db import transaction
+from django.utils import timezone
+
 from apps.users.models import NotificationPreference, UserProfile
-from apps.providers.models import Provider
+
+from ..models import Notification, NotificationLog, NotificationTemplate
 
 logger = logging.getLogger("notifychain.notifications")
 
@@ -18,11 +19,11 @@ class NotificationService:
         channel: str,
         message: str,
         subject: str = "",
-        template: Optional[NotificationTemplate] = None,
-        context_data: Optional[Dict[str, Any]] = None,
+        template: NotificationTemplate | None = None,
+        context_data: dict[str, Any] | None = None,
         priority: str = "normal",
-        scheduled_at: Optional[timezone.datetime] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        scheduled_at: timezone.datetime | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Notification:
 
         if context_data is None:
@@ -115,14 +116,14 @@ class NotificationService:
 
     def send_bulk_notifications(
         self,
-        recipients: List[User],
+        recipients: list[User],
         channel: str,
         message: str,
         subject: str = "",
-        template: Optional[NotificationTemplate] = None,
-        context_data: Optional[Dict[str, Any]] = None,
+        template: NotificationTemplate | None = None,
+        context_data: dict[str, Any] | None = None,
         priority: str = "normal",
-    ) -> List[Notification]:
+    ) -> list[Notification]:
 
         notifications = []
 
@@ -168,12 +169,12 @@ class NotificationService:
 
     def send_bulk_notifications_async(
         self,
-        recipients: List[User],
+        recipients: list[User],
         channel: str,
         message: str,
         subject: str = "",
-        template: Optional[NotificationTemplate] = None,
-        context_data: Optional[Dict[str, Any]] = None,
+        template: NotificationTemplate | None = None,
+        context_data: dict[str, Any] | None = None,
         priority: str = "normal",
     ) -> str:
 
@@ -209,10 +210,10 @@ class NotificationService:
         message: str,
         scheduled_at: timezone.datetime,
         subject: str = "",
-        template: Optional[NotificationTemplate] = None,
-        context_data: Optional[Dict[str, Any]] = None,
+        template: NotificationTemplate | None = None,
+        context_data: dict[str, Any] | None = None,
         priority: str = "normal",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Notification:
 
         if scheduled_at <= timezone.now():
@@ -234,8 +235,8 @@ class NotificationService:
         return notification
 
     def get_user_notifications(
-        self, user: User, limit: int = 20, status: Optional[str] = None
-    ) -> List[Notification]:
+        self, user: User, limit: int = 20, status: str | None = None
+    ) -> list[Notification]:
 
         queryset = Notification.objects.filter(recipient=user)
 
@@ -244,7 +245,7 @@ class NotificationService:
 
         return list(queryset[:limit])
 
-    def _get_recipient_address(self, user: User, channel: str) -> Optional[str]:
+    def _get_recipient_address(self, user: User, channel: str) -> str | None:
 
         if channel == "email":
             return user.email if user.email else None
@@ -373,7 +374,7 @@ class NotificationService:
         notification: Notification,
         status: str,
         message: str,
-        provider_response: Optional[Dict[str, Any]] = None,
+        provider_response: dict[str, Any] | None = None,
     ):
 
         if provider_response is None:
