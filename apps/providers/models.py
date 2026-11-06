@@ -73,30 +73,3 @@ class ProviderUsage(models.Model):
         if self.requests_count == 0:
             return 0
         return (self.success_count / self.requests_count) * 100
-
-
-class ProviderCredential(models.Model):
-    provider = models.OneToOneField(
-        Provider, on_delete=models.CASCADE, related_name="credentials", verbose_name="Провайдер"
-    )
-
-    api_key = models.CharField(max_length=255, blank=True, verbose_name="API ключ")
-    api_secret = models.CharField(max_length=255, blank=True, verbose_name="API секрет")
-
-    username = models.CharField(max_length=100, blank=True, verbose_name="Имя пользователя")
-    password = models.CharField(max_length=255, blank=True, verbose_name="Пароль")
-
-    endpoint_url = models.URLField(blank=True, verbose_name="URL эндпойнта")
-
-    additional_params = models.JSONField(default=dict, verbose_name="Дополнительные параметры")
-
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
-
-    class Meta:
-        db_table = "provider_credentials"
-        verbose_name = "Ключи провайдера"
-        verbose_name_plural = "Ключи провайдеров"
-
-    def __str__(self):
-        return f"Credentials for {self.provider.name}"
