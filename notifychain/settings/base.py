@@ -3,13 +3,11 @@ from pathlib import Path
 import dj_database_url
 from decouple import config
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = config("SECRET_KEY")
-
-DEBUG = config("DEBUG", default=False, cast=bool)
-
-ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
+# SECRET_KEY, DEBUG и ALLOWED_HOSTS намеренно заданы не здесь, а в dev.py и production.py:
+# в разработке у них есть безопасные значения по умолчанию, в продакшене их нет.
+DEBUG = False
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -169,10 +167,6 @@ DEFAULT_PUSH_PROVIDER = config("DEFAULT_PUSH_PROVIDER", default="")
 RATE_LIMIT_ENABLED = config("RATE_LIMIT_ENABLED", default=True, cast=bool)
 MAX_NOTIFICATIONS_PER_MINUTE = config("MAX_NOTIFICATIONS_PER_MINUTE", default=10, cast=int)
 MAX_NOTIFICATIONS_PER_HOUR = config("MAX_NOTIFICATIONS_PER_HOUR", default=100, cast=int)
-
-SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=False, cast=bool)
-SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=False, cast=bool)
-CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=False, cast=bool)
 
 LOGGING = {
     "version": 1,

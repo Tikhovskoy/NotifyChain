@@ -30,7 +30,7 @@ COPY --chown=django:django . .
 USER django
 
 ENV PYTHONPATH=/app
-ENV DJANGO_SETTINGS_MODULE=notifychain.settings
+ENV DJANGO_SETTINGS_MODULE=notifychain.settings.production
 
 EXPOSE 8000
 

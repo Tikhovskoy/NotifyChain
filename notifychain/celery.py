@@ -2,7 +2,10 @@ import os
 
 from celery import Celery
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "notifychain.settings")
+# Этот модуль импортируется из notifychain/__init__.py раньше wsgi.py и asgi.py, поэтому
+# значение по умолчанию здесь должно быть таким же безопасным, как у них. Для локальной
+# разработки задайте DJANGO_SETTINGS_MODULE=notifychain.settings.dev.
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "notifychain.settings.production")
 
 app = Celery("notifychain")
 

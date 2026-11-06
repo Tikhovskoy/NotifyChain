@@ -8,6 +8,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://notifychain:password@db:5432/notifychain
       - REDIS_URL=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=notifychain.settings.dev
       - DEBUG=True
     env_file:
       - .env
@@ -25,6 +26,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://notifychain:password@db:5432/notifychain
       - REDIS_URL=redis://redis:6379/0
+      - DJANGO_SETTINGS_MODULE=notifychain.settings.dev
     env_file:
       - .env
     depends_on:

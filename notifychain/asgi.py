@@ -11,6 +11,7 @@ import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "notifychain.settings")
+# Веб-серверы по умолчанию запускаются с продакшен-настройками
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "notifychain.settings.production")
 
 application = get_asgi_application()
