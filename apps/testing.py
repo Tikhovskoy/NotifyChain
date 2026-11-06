@@ -1,8 +1,25 @@
-"""Общие помощники для тестов API."""
+"""Общие помощники для тестов."""
+
+from contextlib import ExitStack
+from datetime import UTC
+from unittest import mock
 
 from django.core.cache import cache
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient, APITestCase
+
+
+def frozen_time(moment):
+    """Замораживает «сейчас» для Django и для time.time (счётчики лимитов, TTL кэша).
+
+    Использование: `with frozen_time(datetime(2026, 3, 1, 10, 30, tzinfo=UTC)): ...`
+    """
+
+    moment = moment.astimezone(UTC)
+    stack = ExitStack()
+    stack.enter_context(mock.patch("django.utils.timezone.now", return_value=moment))
+    stack.enter_context(mock.patch("time.time", return_value=moment.timestamp()))
+    return stack
 
 
 class TokenAPITestCase(APITestCase):

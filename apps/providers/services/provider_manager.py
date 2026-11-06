@@ -1,15 +1,15 @@
 import logging
-from datetime import timedelta
 from typing import Any
 
 from django.utils import timezone
 
 from apps.notifications.exceptions import DeliveryException, ProviderException
 
-from ..models import Provider, ProviderUsage
+from ..models import Provider
 from .base_provider import BaseProvider
 from .rate_limiter import ProviderRateLimiter
 from .registry import ProviderRegistry
+from .usage_recorder import UsageRecorder
 
 logger = logging.getLogger("notifychain.providers")
 
@@ -25,9 +25,11 @@ class ProviderManager:
         self,
         registry: ProviderRegistry | None = None,
         rate_limiter: ProviderRateLimiter | None = None,
+        usage_recorder: UsageRecorder | None = None,
     ):
         self.registry = registry or ProviderRegistry()
         self.rate_limiter = rate_limiter or ProviderRateLimiter()
+        self.usage_recorder = usage_recorder or UsageRecorder()
 
     def get_provider(self, channel: str, provider_name: str | None = None) -> BaseProvider:
         return self.registry.get_instance(self.registry.resolve(channel, provider_name))
@@ -71,14 +73,14 @@ class ProviderManager:
                     )
 
                 duration = (timezone.now() - start_time).total_seconds()
-                self._record_usage(provider_model, success=True, duration=duration)
+                self.usage_recorder.record(provider_model, success=True, duration=duration)
 
                 logger.info(f"Успешно отправлено через провайдер {provider_model.name}")
                 return response
 
             except Exception as e:
                 duration = (timezone.now() - start_time).total_seconds()
-                self._record_usage(provider_model, success=False, duration=duration)
+                self.usage_recorder.record(provider_model, success=False, duration=duration)
 
                 logger.warning(f"Ошибка отправки через {provider_model.name}: {str(e)}")
                 last_exception = e
@@ -99,45 +101,7 @@ class ProviderManager:
         return self.registry.get_available(channel)
 
     def get_provider_statistics(self, provider_id: int, days: int = 7) -> dict[str, Any]:
-
-        provider = Provider.objects.get(id=provider_id)
-        start_date = timezone.now().date() - timedelta(days=days)
-
-        usage_stats = ProviderUsage.objects.filter(provider=provider, date__gte=start_date)
-
-        total_requests = sum(stat.requests_count for stat in usage_stats)
-        total_success = sum(stat.success_count for stat in usage_stats)
-        total_failures = sum(stat.failure_count for stat in usage_stats)
-
-        avg_response_time = 0
-        if usage_stats:
-            avg_response_time = sum(stat.average_response_time for stat in usage_stats) / len(
-                usage_stats
-            )
-
-        success_rate = 0
-        if total_requests > 0:
-            success_rate = (total_success / total_requests) * 100
-
-        return {
-            "provider_name": provider.name,
-            "period_days": days,
-            "total_requests": total_requests,
-            "successful_requests": total_success,
-            "failed_requests": total_failures,
-            "success_rate": round(success_rate, 2),
-            "average_response_time": round(avg_response_time, 3),
-            "daily_stats": [
-                {
-                    "date": stat.date,
-                    "requests": stat.requests_count,
-                    "success": stat.success_count,
-                    "failures": stat.failure_count,
-                    "avg_time": stat.average_response_time,
-                }
-                for stat in usage_stats.order_by("date")
-            ],
-        }
+        return self.usage_recorder.statistics(Provider.objects.get(id=provider_id), days)
 
     def test_provider(self, provider_id: int) -> dict[str, Any]:
 
@@ -171,38 +135,6 @@ class ProviderManager:
 
     def register_provider_class(self, name: str, provider_class: type[BaseProvider]):
         self.registry.register(name, provider_class)
-
-    def _record_usage(self, provider: Provider, success: bool, duration: float):
-
-        today = timezone.now().date()
-        current_hour = timezone.now().hour
-
-        usage, created = ProviderUsage.objects.get_or_create(
-            provider=provider,
-            date=today,
-            hour=current_hour,
-            defaults={
-                "requests_count": 0,
-                "success_count": 0,
-                "failure_count": 0,
-                "average_response_time": 0.0,
-            },
-        )
-
-        usage.requests_count += 1
-        if success:
-            usage.success_count += 1
-        else:
-            usage.failure_count += 1
-
-        if usage.requests_count > 1:
-            usage.average_response_time = (
-                usage.average_response_time * (usage.requests_count - 1) + duration
-            ) / usage.requests_count
-        else:
-            usage.average_response_time = duration
-
-        usage.save()
 
     def _get_test_recipient(self, provider_type: str) -> str:
 
