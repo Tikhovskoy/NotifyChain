@@ -68,6 +68,14 @@ class ProductionSettingsTest(SimpleTestCase):
         with self.assertRaises(ImproperlyConfigured):
             load_settings(PRODUCTION, {**PRODUCTION_ENV, "ALLOWED_HOSTS": ""})
 
+    def test_static_files_are_served_by_whitenoise_right_after_security_middleware(self):
+        module = load_settings(PRODUCTION, PRODUCTION_ENV)
+
+        middleware = module.MIDDLEWARE
+        security = middleware.index("django.middleware.security.SecurityMiddleware")
+        self.assertEqual(middleware[security + 1], "whitenoise.middleware.WhiteNoiseMiddleware")
+        self.assertTrue(str(module.STATIC_ROOT).endswith("staticfiles"))
+
     def test_cache_does_not_share_database_with_celery_broker(self):
         module = load_settings(PRODUCTION, PRODUCTION_ENV)
 

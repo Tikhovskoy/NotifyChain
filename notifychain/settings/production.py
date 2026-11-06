@@ -22,6 +22,17 @@ DATABASES = {
 # Продакшен всегда без DEBUG, переменная окружения DEBUG здесь не читается
 DEBUG = False
 
+# Статику админки и DRF отдаёт WhiteNoise: gunicorn сам её раздавать не умеет
+MIDDLEWARE = list(MIDDLEWARE)
+MIDDLEWARE.insert(
+    MIDDLEWARE.index("django.middleware.security.SecurityMiddleware") + 1,
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+)
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
+
 REDIS_URL = config("REDIS_URL")
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL

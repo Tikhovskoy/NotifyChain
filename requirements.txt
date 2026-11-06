@@ -10,3 +10,5 @@ requests==2.31.0
 sendgrid==6.12.4
 twilio==9.8.0
 psycopg[binary]==3.3.8
+gunicorn==26.2.0
+whitenoise==6.12.0
