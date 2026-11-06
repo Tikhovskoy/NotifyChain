@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -98,6 +99,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(recipient=self.request.user)
 
         return queryset.select_related("recipient", "template").prefetch_related("logs")
+
+    def _own_recipient_filter(self):
+        """None для администратора (видит всё), иначе текущий пользователь."""
+        return None if self.request.user.is_staff else self.request.user
 
     @action(detail=False, methods=["post"])
     def send(self, request):
@@ -264,6 +269,13 @@ class NotificationViewSet(viewsets.ModelViewSet):
             user_id = serializer.validated_data.get("user_id")
             days = serializer.validated_data.get("days", 7)
 
+            if not request.user.is_staff:
+                if user_id not in (None, request.user.id):
+                    raise PermissionDenied(
+                        "Статистика других пользователей доступна только администраторам"
+                    )
+                user_id = request.user.id
+
             if user_id:
                 user = User.objects.get(id=user_id)
                 stats = NotificationHelper.get_user_notification_stats(user)
@@ -311,7 +323,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
         except (ValueError, TypeError):
             limit = 100
 
-        pending_notifications = NotificationHelper.get_pending_notifications(limit)
+        pending_notifications = NotificationHelper.get_pending_notifications(
+            limit, recipient=self._own_recipient_filter()
+        )
 
         return Response(
             {
@@ -329,7 +343,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
         except (ValueError, TypeError):
             limit = 50
 
-        failed_notifications = NotificationHelper.get_failed_notifications_for_retry(limit)
+        failed_notifications = NotificationHelper.get_failed_notifications_for_retry(
+            limit, recipient=self._own_recipient_filter()
+        )
 
         return Response(
             {

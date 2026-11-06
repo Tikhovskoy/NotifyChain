@@ -130,20 +130,24 @@ class NotificationHelper:
             return False
 
     @staticmethod
-    def get_pending_notifications(limit: int = 100) -> list[Notification]:
+    def get_pending_notifications(
+        limit: int = 100, recipient: User | None = None
+    ) -> list[Notification]:
+        queryset = Notification.objects.filter(status="pending")
+        if recipient is not None:
+            queryset = queryset.filter(recipient=recipient)
 
-        return list(
-            Notification.objects.filter(status="pending").order_by("priority", "created_at")[:limit]
-        )
+        return list(queryset.order_by("priority", "created_at")[:limit])
 
     @staticmethod
-    def get_failed_notifications_for_retry(limit: int = 50) -> list[Notification]:
+    def get_failed_notifications_for_retry(
+        limit: int = 50, recipient: User | None = None
+    ) -> list[Notification]:
+        queryset = Notification.objects.filter(status="failed").exclude(retry_count__gte=3)
+        if recipient is not None:
+            queryset = queryset.filter(recipient=recipient)
 
-        return list(
-            Notification.objects.filter(status="failed")
-            .exclude(retry_count__gte=3)
-            .order_by("created_at")[:limit]
-        )
+        return list(queryset.order_by("created_at")[:limit])
 
     @staticmethod
     def cleanup_old_notifications(days: int = 90) -> int:
