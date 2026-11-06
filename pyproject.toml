@@ -26,8 +26,9 @@ known-first-party = ["apps", "notifychain", "tasks"]
 
 [tool.coverage.run]
 source = ["apps"]
-omit = ["*/migrations/*", "*/tests.py", "*/tests/*"]
+omit = ["*/migrations/*", "*/tests.py", "*/test_*.py", "apps/testing.py"]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
+fail_under = 70
