@@ -9,3 +9,4 @@ redis==5.0.1
 requests==2.31.0
 sendgrid==6.12.4
 twilio==9.8.0
+psycopg[binary]==3.3.8
