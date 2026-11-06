@@ -152,6 +152,49 @@ class InChannelFallbackTest(ProviderFallbackTestCase):
         self.assertEqual(response["provider"], "sendgrid")
 
 
+def rejects(error="rejected"):
+    return mock.Mock(return_value={"success": False, "error": error})
+
+
+class FailureResponseFallbackTest(ProviderFallbackTestCase):
+    """Реальные провайдеры не бросают исключение при сбое, а возвращают success=False."""
+
+    def test_backup_is_used_when_primary_returns_failure_response(self):
+        self.add_provider("smtp", rejects("SMTP ошибка аутентификации"), priority=1)
+        self.add_provider("sendgrid", ok("sendgrid"), priority=2)
+
+        response = self.send()
+
+        self.assertEqual(response["provider"], "sendgrid")
+        self.assertEqual(self.calls, ["smtp", "sendgrid"])
+
+    def test_failure_response_is_recorded_as_failure_in_usage(self):
+        smtp = self.add_provider("smtp", rejects(), priority=1)
+        self.add_provider("sendgrid", ok("sendgrid"), priority=2)
+
+        self.send()
+
+        usage = ProviderUsage.objects.get(provider=smtp)
+        self.assertEqual((usage.success_count, usage.failure_count), (0, 1))
+
+    def test_all_failure_responses_raise_with_the_provider_error(self):
+        self.add_provider("smtp", rejects("smtp отклонил"), priority=1)
+        self.add_provider("sendgrid", rejects("sendgrid отклонил"), priority=2)
+
+        with self.assertRaises(ProviderException) as caught:
+            self.send()
+
+        self.assertIn("sendgrid отклонил", str(caught.exception))
+
+    def test_response_without_success_flag_is_a_failure(self):
+        self.add_provider("smtp", mock.Mock(return_value={}), priority=1)
+        self.add_provider("sendgrid", ok("sendgrid"), priority=2)
+
+        response = self.send()
+
+        self.assertEqual(response["provider"], "sendgrid")
+
+
 class RateLimitFallbackTest(ProviderFallbackTestCase):
     def test_rate_limited_primary_is_skipped_in_favour_of_backup(self):
         self.add_provider("smtp", ok("smtp"), priority=1, rate_limit_per_minute=2)

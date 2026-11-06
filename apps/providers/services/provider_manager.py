@@ -4,7 +4,7 @@ from typing import Any
 
 from django.utils import timezone
 
-from apps.notifications.exceptions import ProviderException
+from apps.notifications.exceptions import DeliveryException, ProviderException
 
 from ..models import Provider, ProviderUsage
 from .base_provider import BaseProvider, MockEmailProvider, MockPushProvider, MockSMSProvider
@@ -82,6 +82,13 @@ class ProviderManager:
                 logger.info(f"Пытаюсь отправить через провайдер {provider_model.name}")
 
                 response = provider_instance.send(recipient, message, subject, metadata)
+
+                # Реальные провайдеры не бросают исключение при сбое, а возвращают
+                # {"success": False, "error": ...}: для fallback это такая же неудача.
+                if not response.get("success"):
+                    raise DeliveryException(
+                        response.get("error") or f"Провайдер {provider_model.name} вернул отказ"
+                    )
 
                 duration = (timezone.now() - start_time).total_seconds()
                 self._record_usage(provider_model, success=True, duration=duration)
