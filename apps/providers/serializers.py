@@ -25,6 +25,8 @@ class ProviderSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
+        # config может содержать учётные данные: принимаем при записи, в ответах не отдаём
+        extra_kwargs = {"config": {"write_only": True}}
 
     def get_rate_limit_info(self, obj):
         return f"{obj.rate_limit_per_minute}/мин, {obj.rate_limit_per_hour}/час"
