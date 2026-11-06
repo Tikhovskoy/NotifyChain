@@ -12,6 +12,7 @@ from unittest import mock
 
 import requests
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase
 from twilio.base.exceptions import TwilioRestException
@@ -92,6 +93,9 @@ class FakeInternet:
 
 
 class DeliveryChainTest(TestCase):
+    def setUp(self):
+        cache.clear()  # счётчики rate limit лежат в кэше
+
     @classmethod
     def setUpTestData(cls):
         call_command("setup_providers", stdout=StringIO())

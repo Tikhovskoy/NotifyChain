@@ -3,8 +3,11 @@
 Провайдеры подменены фейковыми классами, поэтому сеть не нужна.
 """
 
+from contextlib import ExitStack
+from datetime import UTC, datetime
 from unittest import mock
 
+from django.core.cache import cache
 from django.test import TestCase
 
 from apps.notifications.exceptions import ProviderException
@@ -42,6 +45,7 @@ class ProviderFallbackTestCase(TestCase):
     """Общая подготовка: менеджер с зарегистрированными фейковыми классами."""
 
     def setUp(self):
+        cache.clear()  # в кэше лежат счётчики rate limit, pk провайдеров между тестами повторяются
         self.manager = ProviderManager()
         self.calls = []
 
@@ -230,6 +234,74 @@ class RateLimitFallbackTest(ProviderFallbackTestCase):
 
         self.assertEqual(self.calls, ["smtp", "sendgrid"])
         self.assertEqual(ProviderUsage.objects.get(provider=smtp).requests_count, 1)
+
+
+def at(moment):
+    """Замораживает «сейчас» для Django и для time.time (счётчики лимитов, TTL кэша)."""
+
+    moment = moment.astimezone(UTC)
+    stack = ExitStack()
+    stack.enter_context(mock.patch("django.utils.timezone.now", return_value=moment))
+    stack.enter_context(mock.patch("time.time", return_value=moment.timestamp()))
+    return stack
+
+
+class RateLimitWindowTest(ProviderFallbackTestCase):
+    """Лимиты должны работать в любой момент часа, а не только в первую минуту."""
+
+    def setUp(self):
+        super().setUp()
+        self.smtp = self.add_provider("smtp", ok("smtp"), priority=1, rate_limit_per_minute=2)
+        self.add_provider("sendgrid", ok("sendgrid"), priority=2)
+
+    def providers_used(self, count):
+        return [self.send()["provider"] for _ in range(count)]
+
+    def test_minute_limit_is_enforced_late_in_the_hour(self):
+        with at(datetime(2026, 3, 1, 10, 5, tzinfo=UTC)):
+            self.send()
+
+        with at(datetime(2026, 3, 1, 10, 30, tzinfo=UTC)):
+            used = self.providers_used(3)
+
+        self.assertEqual(used, ["smtp", "smtp", "sendgrid"])
+
+    def test_minute_counter_resets_in_the_next_minute(self):
+        with at(datetime(2026, 3, 1, 10, 30, 10, tzinfo=UTC)):
+            self.assertEqual(self.providers_used(3), ["smtp", "smtp", "sendgrid"])
+
+        with at(datetime(2026, 3, 1, 10, 31, 5, tzinfo=UTC)):
+            self.assertEqual(self.providers_used(1), ["smtp"])
+
+    def test_hourly_limit_counts_requests_across_minutes(self):
+        Provider.objects.filter(pk=self.smtp.pk).update(
+            rate_limit_per_minute=100, rate_limit_per_hour=3
+        )
+        used = []
+        for minute in (1, 2, 3, 4):
+            with at(datetime(2026, 3, 1, 10, minute, tzinfo=UTC)):
+                used.extend(self.providers_used(1))
+
+        self.assertEqual(used, ["smtp", "smtp", "smtp", "sendgrid"])
+
+    def test_hourly_counter_resets_in_the_next_hour(self):
+        Provider.objects.filter(pk=self.smtp.pk).update(
+            rate_limit_per_minute=100, rate_limit_per_hour=1
+        )
+        with at(datetime(2026, 3, 1, 10, 50, tzinfo=UTC)):
+            self.assertEqual(self.providers_used(2), ["smtp", "sendgrid"])
+
+        with at(datetime(2026, 3, 1, 11, 0, 30, tzinfo=UTC)):
+            self.assertEqual(self.providers_used(1), ["smtp"])
+
+    def test_limits_can_be_switched_off(self):
+        with (
+            self.settings(RATE_LIMIT_ENABLED=False),
+            at(datetime(2026, 3, 1, 10, 30, tzinfo=UTC)),
+        ):
+            used = self.providers_used(4)
+
+        self.assertEqual(used, ["smtp"] * 4)
 
 
 class UsageStatisticsTest(ProviderFallbackTestCase):

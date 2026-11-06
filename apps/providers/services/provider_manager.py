@@ -13,6 +13,7 @@ from apps.notifications.exceptions import (
 from ..models import Provider, ProviderUsage
 from .base_provider import BaseProvider, MockEmailProvider, MockPushProvider, MockSMSProvider
 from .email_providers import SendGridEmailProvider, SMTPEmailProvider
+from .rate_limiter import ProviderRateLimiter
 from .sms_providers import TwilioSMSProvider
 from .telegram_providers import TelegramProvider
 
@@ -31,6 +32,7 @@ class ProviderManager:
             "telegram": TelegramProvider,
         }
         self._provider_instances = {}
+        self.rate_limiter = ProviderRateLimiter()
 
     def get_provider(self, channel: str, provider_name: str | None = None) -> BaseProvider:
 
@@ -76,7 +78,7 @@ class ProviderManager:
             start_time = timezone.now()
 
             try:
-                if not self._check_rate_limit(provider_model):
+                if not self.rate_limiter.acquire(provider_model):
                     logger.warning(
                         f"Превышен лимит для провайдера {provider_model.name}, пробую следующий"
                     )
@@ -237,26 +239,6 @@ class ProviderManager:
 
     def _get_provider_model(self, provider_name: str) -> Provider:
         return Provider.objects.get(name=provider_name)
-
-    def _check_rate_limit(self, provider: Provider) -> bool:
-
-        now = timezone.now()
-
-        minute_ago = now - timedelta(minutes=1)
-        recent_usage = ProviderUsage.objects.filter(provider=provider, created_at__gte=minute_ago)
-
-        requests_last_minute = sum(usage.requests_count for usage in recent_usage)
-        if requests_last_minute >= provider.rate_limit_per_minute:
-            return False
-
-        hour_ago = now - timedelta(hours=1)
-        hourly_usage = ProviderUsage.objects.filter(provider=provider, created_at__gte=hour_ago)
-
-        requests_last_hour = sum(usage.requests_count for usage in hourly_usage)
-        if requests_last_hour >= provider.rate_limit_per_hour:
-            return False
-
-        return True
 
     def _record_usage(self, provider: Provider, success: bool, duration: float):
 
