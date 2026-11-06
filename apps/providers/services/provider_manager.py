@@ -4,50 +4,33 @@ from typing import Any
 
 from django.utils import timezone
 
-from apps.notifications.exceptions import (
-    DeliveryException,
-    ProviderException,
-    ProviderNotFoundException,
-)
+from apps.notifications.exceptions import DeliveryException, ProviderException
 
 from ..models import Provider, ProviderUsage
-from .base_provider import BaseProvider, MockEmailProvider, MockPushProvider, MockSMSProvider
-from .email_providers import SendGridEmailProvider, SMTPEmailProvider
+from .base_provider import BaseProvider
 from .rate_limiter import ProviderRateLimiter
-from .sms_providers import TwilioSMSProvider
-from .telegram_providers import TelegramProvider
+from .registry import ProviderRegistry
 
 logger = logging.getLogger("notifychain.providers")
 
 
 class ProviderManager:
-    def __init__(self):
-        self._provider_classes = {
-            "mock_email": MockEmailProvider,
-            "mock_sms": MockSMSProvider,
-            "mock_push": MockPushProvider,
-            "smtp": SMTPEmailProvider,
-            "sendgrid": SendGridEmailProvider,
-            "twilio": TwilioSMSProvider,
-            "telegram": TelegramProvider,
-        }
-        self._provider_instances = {}
-        self.rate_limiter = ProviderRateLimiter()
+    """Отправка с fallback между провайдерами канала.
+
+    Сам менеджер только оркестрирует. Выбор провайдеров делает ProviderRegistry, лимиты считает
+    ProviderRateLimiter.
+    """
+
+    def __init__(
+        self,
+        registry: ProviderRegistry | None = None,
+        rate_limiter: ProviderRateLimiter | None = None,
+    ):
+        self.registry = registry or ProviderRegistry()
+        self.rate_limiter = rate_limiter or ProviderRateLimiter()
 
     def get_provider(self, channel: str, provider_name: str | None = None) -> BaseProvider:
-
-        if provider_name:
-            provider = self._get_provider_by_name(provider_name)
-        else:
-            provider = self._get_default_provider(channel)
-
-        if not provider:
-            raise ProviderNotFoundException(f"Провайдер не найден для канала {channel}")
-
-        if not provider.is_active:
-            raise ProviderException(f"Провайдер {provider.name} неактивен")
-
-        return self._get_provider_instance(provider)
+        return self.registry.get_instance(self.registry.resolve(channel, provider_name))
 
     def send_notification(
         self,
@@ -59,18 +42,9 @@ class ProviderManager:
         provider_name: str | None = None,
     ) -> dict[str, Any]:
 
-        if provider_name:
-            providers_to_try = [self._get_provider_by_name(provider_name)]
-            if not providers_to_try[0]:
-                raise ProviderNotFoundException(f"Провайдер {provider_name} не найден")
-        else:
-            providers_to_try = self.get_available_providers(channel)
-            if not providers_to_try:
-                raise ProviderException(f"Нет доступных провайдеров для канала {channel}")
-
         last_exception = None
 
-        for provider_model in providers_to_try:
+        for provider_model in self.registry.candidates(channel, provider_name):
             if not provider_model.is_active:
                 logger.info(f"Пропускаю неактивный провайдер {provider_model.name}")
                 continue
@@ -84,7 +58,7 @@ class ProviderManager:
                     )
                     continue
 
-                provider_instance = self._get_provider_instance(provider_model)
+                provider_instance = self.registry.get_instance(provider_model)
                 logger.info(f"Пытаюсь отправить через провайдер {provider_model.name}")
 
                 response = provider_instance.send(recipient, message, subject, metadata)
@@ -122,10 +96,7 @@ class ProviderManager:
         raise ProviderException(error_msg)
 
     def get_available_providers(self, channel: str) -> list[Provider]:
-
-        return list(
-            Provider.objects.filter(provider_type=channel, is_active=True).order_by("priority")
-        )
+        return self.registry.get_available(channel)
 
     def get_provider_statistics(self, provider_id: int, days: int = 7) -> dict[str, Any]:
 
@@ -171,7 +142,7 @@ class ProviderManager:
     def test_provider(self, provider_id: int) -> dict[str, Any]:
 
         provider = Provider.objects.get(id=provider_id)
-        provider_instance = self._get_provider_instance(provider)
+        provider_instance = self.registry.get_instance(provider)
 
         test_result = {
             "provider_name": provider.name,
@@ -199,46 +170,7 @@ class ProviderManager:
         return test_result
 
     def register_provider_class(self, name: str, provider_class: type[BaseProvider]):
-
-        self._provider_classes[name] = provider_class
-        logger.info(f"Зарегистрирован класс провайдера {name}")
-
-    def _get_provider_by_name(self, name: str) -> Provider | None:
-        try:
-            return Provider.objects.get(name=name, is_active=True)
-        except Provider.DoesNotExist:
-            return None
-
-    def _get_default_provider(self, channel: str) -> Provider | None:
-        try:
-            return Provider.objects.get(provider_type=channel, is_default=True, is_active=True)
-        except Provider.DoesNotExist:
-            providers = Provider.objects.filter(provider_type=channel, is_active=True).order_by(
-                "priority"
-            )
-            return providers.first() if providers.exists() else None
-
-    def _get_provider_instance(self, provider: Provider) -> BaseProvider:
-
-        cache_key = f"{provider.name}_{provider.id}"
-
-        if cache_key not in self._provider_instances:
-            provider_class_name = provider.config.get(
-                "class_name", f"mock_{provider.provider_type}"
-            )
-            provider_class = self._provider_classes.get(provider_class_name)
-
-            if not provider_class:
-                raise ProviderException(f"Класс провайдера {provider_class_name} не найден")
-
-            self._provider_instances[cache_key] = provider_class()
-
-        instance = self._provider_instances[cache_key]
-        instance.name = provider.name
-        return instance
-
-    def _get_provider_model(self, provider_name: str) -> Provider:
-        return Provider.objects.get(name=provider_name)
+        self.registry.register(name, provider_class)
 
     def _record_usage(self, provider: Provider, success: bool, duration: float):
 
