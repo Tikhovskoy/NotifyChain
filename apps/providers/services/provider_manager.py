@@ -117,7 +117,9 @@ class ProviderManager:
         }
 
         try:
-            test_result["config_valid"] = provider_instance.validate_config()
+            report = provider_instance.validate_config()
+            test_result["config_valid"] = bool(report.get("is_valid"))
+            test_result["errors"].extend(report.get("errors", []))
         except Exception as e:
             test_result["errors"].append(f"Config validation failed: {str(e)}")
 
