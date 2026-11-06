@@ -8,6 +8,8 @@ from .utils import NotificationValidator
 
 
 class NotificationTemplateSerializer(serializers.ModelSerializer):
+    template_service_class = TemplateService
+
     variables_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -30,7 +32,7 @@ class NotificationTemplateSerializer(serializers.ModelSerializer):
         return len(obj.variables) if obj.variables else 0
 
     def validate(self, data):
-        template_service = TemplateService()
+        template_service = self.context.get("template_service") or self.template_service_class()
 
         template = NotificationTemplate(**data)
         validation_result = template_service.validate_template(template)
@@ -95,8 +97,15 @@ class NotificationSerializer(serializers.ModelSerializer):
         return obj.can_retry()
 
 
-class SendNotificationSerializer(serializers.Serializer):
-    recipient_id = serializers.IntegerField()
+class NotificationRequestSerializer(serializers.Serializer):
+    """Общие поля запросов на отправку: канал, текст, шаблон и приоритет.
+
+    Сервис берётся из контекста (его кладёт представление) или создаётся из `service_class`,
+    поэтому в тестах его можно подменить.
+    """
+
+    service_class = NotificationService
+
     channel = serializers.ChoiceField(choices=["email", "sms", "push"])
     message = serializers.CharField(max_length=10000)
     subject = serializers.CharField(max_length=200, required=False, allow_blank=True)
@@ -105,27 +114,50 @@ class SendNotificationSerializer(serializers.Serializer):
     priority = serializers.ChoiceField(
         choices=["low", "normal", "high", "urgent"], default="normal"
     )
+
+    def get_service(self):
+        return self.context.get("service") or self.service_class()
+
+    def get_template(self):
+        template_id = self.validated_data.get("template_id")
+        return NotificationTemplate.objects.get(id=template_id) if template_id else None
+
+    def validate_template_id(self, value):
+        if value:
+            try:
+                template = NotificationTemplate.objects.get(id=value)
+            except NotificationTemplate.DoesNotExist:
+                raise serializers.ValidationError("Шаблон не найден") from None
+            if not template.is_active:
+                raise serializers.ValidationError("Шаблон неактивен")
+        return value
+
+    def delivery_options(self):
+        """Параметры сервиса, общие для одиночной и массовой отправки."""
+
+        data = self.validated_data
+        return {
+            "channel": data["channel"],
+            "message": data["message"],
+            "subject": data.get("subject", ""),
+            "template": self.get_template(),
+            "context_data": data.get("context_data", {}),
+            "priority": data.get("priority", "normal"),
+        }
+
+
+class SendNotificationSerializer(NotificationRequestSerializer):
+    recipient_id = serializers.IntegerField()
     scheduled_at = serializers.DateTimeField(required=False, allow_null=True)
     metadata = serializers.JSONField(default=dict)
 
     def validate_recipient_id(self, value):
         try:
             user = User.objects.get(id=value)
-            if not user.is_active:
-                raise serializers.ValidationError("Пользователь неактивен")
-            return value
         except User.DoesNotExist:
-            raise serializers.ValidationError("Пользователь не найден")
-
-    def validate_template_id(self, value):
-        if value:
-            try:
-                template = NotificationTemplate.objects.get(id=value)
-                if not template.is_active:
-                    raise serializers.ValidationError("Шаблон неактивен")
-                return value
-            except NotificationTemplate.DoesNotExist:
-                raise serializers.ValidationError("Шаблон не найден")
+            raise serializers.ValidationError("Пользователь не найден") from None
+        if not user.is_active:
+            raise serializers.ValidationError("Пользователь неактивен")
         return value
 
     def validate(self, data):
@@ -141,40 +173,17 @@ class SendNotificationSerializer(serializers.Serializer):
         return data
 
     def create(self, validated_data):
-        recipient = User.objects.get(id=validated_data["recipient_id"])
-        template = None
-
-        if validated_data.get("template_id"):
-            template = NotificationTemplate.objects.get(id=validated_data["template_id"])
-
-        notification_service = NotificationService()
-
-        notification = notification_service.create_notification(
-            recipient=recipient,
-            channel=validated_data["channel"],
-            message=validated_data["message"],
-            subject=validated_data.get("subject", ""),
-            template=template,
-            context_data=validated_data.get("context_data", {}),
-            priority=validated_data.get("priority", "normal"),
+        return self.get_service().create_notification(
+            recipient=User.objects.get(id=validated_data["recipient_id"]),
             scheduled_at=validated_data.get("scheduled_at"),
             metadata=validated_data.get("metadata", {}),
+            **self.delivery_options(),
         )
 
-        return notification
 
-
-class BulkNotificationSerializer(serializers.Serializer):
+class BulkNotificationSerializer(NotificationRequestSerializer):
     recipient_ids = serializers.ListField(
         child=serializers.IntegerField(), min_length=1, max_length=1000
-    )
-    channel = serializers.ChoiceField(choices=["email", "sms", "push"])
-    message = serializers.CharField(max_length=10000)
-    subject = serializers.CharField(max_length=200, required=False, allow_blank=True)
-    template_id = serializers.IntegerField(required=False, allow_null=True)
-    context_data = serializers.JSONField(default=dict)
-    priority = serializers.ChoiceField(
-        choices=["low", "normal", "high", "urgent"], default="normal"
     )
 
     def validate_recipient_ids(self, value):
@@ -188,37 +197,26 @@ class BulkNotificationSerializer(serializers.Serializer):
 
         return unique_ids
 
-    def validate_template_id(self, value):
-        if value:
-            try:
-                template = NotificationTemplate.objects.get(id=value)
-                if not template.is_active:
-                    raise serializers.ValidationError("Шаблон неактивен")
-                return value
-            except NotificationTemplate.DoesNotExist:
-                raise serializers.ValidationError("Шаблон не найден")
-        return value
+    def get_recipients(self):
+        if not hasattr(self, "_recipients"):
+            self._recipients = list(
+                User.objects.filter(id__in=self.validated_data["recipient_ids"])
+            )
+        return self._recipients
 
     def create(self, validated_data):
-        recipients = User.objects.filter(id__in=validated_data["recipient_ids"])
-        template = None
+        """Создаёт уведомления для получателей и возвращает их (без отправки)."""
 
-        if validated_data.get("template_id"):
-            template = NotificationTemplate.objects.get(id=validated_data["template_id"])
-
-        notification_service = NotificationService()
-
-        notifications = notification_service.send_bulk_notifications(
-            recipients=list(recipients),
-            channel=validated_data["channel"],
-            message=validated_data["message"],
-            subject=validated_data.get("subject", ""),
-            template=template,
-            context_data=validated_data.get("context_data", {}),
-            priority=validated_data.get("priority", "normal"),
+        return self.get_service().send_bulk_notifications(
+            recipients=self.get_recipients(), **self.delivery_options()
         )
 
-        return notifications
+    def enqueue(self):
+        """Создаёт уведомления и ставит их в очередь Celery. Возвращает id задачи."""
+
+        return self.get_service().send_bulk_notifications_async(
+            recipients=self.get_recipients(), **self.delivery_options()
+        )
 
 
 class TemplatePreviewSerializer(serializers.Serializer):

@@ -32,6 +32,13 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
     search_fields = ["name", "subject", "body"]
     ordering_fields = ["name", "created_at", "updated_at"]
     ordering = ["-created_at"]
+    template_service_class = TemplateService  # подменяется в тестах
+
+    def get_template_service(self):
+        return self.template_service_class()
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), "template_service": self.get_template_service()}
 
     # preview и validate_template только считают результат и ничего не сохраняют,
     # поэтому доступны любому аутентифицированному пользователю, хотя это POST.
@@ -42,7 +49,7 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         context_data = serializer.validated_data.get("context_data", {})
-        preview = TemplateService().get_template_preview(template, context_data)
+        preview = self.get_template_service().get_template_preview(template, context_data)
 
         return Response(
             {
@@ -57,9 +64,7 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def validate_template(self, request, pk=None):
         template = self.get_object()
-        template_service = TemplateService()
-
-        validation_result = template_service.validate_template(template)
+        validation_result = self.get_template_service().validate_template(template)
 
         return Response(
             {
@@ -81,6 +86,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
     search_fields = ["subject", "recipient__username", "recipient_address"]
     ordering_fields = ["created_at", "sent_at", "priority"]
     ordering = ["-created_at"]
+    service_class = NotificationService  # подменяется в тестах
+
+    def get_service(self):
+        return self.service_class()
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -96,83 +105,69 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"])
     def send(self, request):
-        serializer = SendNotificationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        notification = serializer.save()
-        success = NotificationService().send_notification(notification)
-
-        response_data = NotificationSerializer(notification).data
-        response_data["sent_immediately"] = success
-
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        return self._send_single(request, deferred=False)
 
     @action(detail=False, methods=["post"])
     def send_async(self, request):
-        serializer = SendNotificationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        notification = serializer.save()
-        task_id = NotificationService().send_notification_async(notification)
-
-        response_data = NotificationSerializer(notification).data
-        response_data["task_id"] = task_id
-        response_data["queued_for_async_processing"] = True
-
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        return self._send_single(request, deferred=True)
 
     @action(detail=False, methods=["post"])
     def send_bulk(self, request):
-        serializer = BulkNotificationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        notifications = serializer.save()
-
-        return Response(
-            {
-                "message": f"Created {len(notifications)} notifications",
-                "notifications": [
-                    {
-                        "id": notif.id,
-                        "recipient": notif.recipient.username,
-                        "status": notif.status,
-                    }
-                    for notif in notifications
-                ],
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        return self._send_bulk(request, deferred=False)
 
     @action(detail=False, methods=["post"])
     def send_bulk_async(self, request):
-        serializer = BulkNotificationSerializer(data=request.data)
+        return self._send_bulk(request, deferred=True)
+
+    def _request_serializer(self, serializer_class, request, service):
+        serializer = serializer_class(data=request.data, context={"service": service})
         serializer.is_valid(raise_exception=True)
+        return serializer
 
-        data = serializer.validated_data
-        recipients = list(User.objects.filter(id__in=data["recipient_ids"]))
-        template = None
-        if data.get("template_id"):
-            template = NotificationTemplate.objects.get(id=data["template_id"])
+    def _send_single(self, request, *, deferred):
+        """Одно уведомление: отправить сразу или поставить в очередь Celery."""
 
-        task_id = NotificationService().send_bulk_notifications_async(
-            recipients=recipients,
-            channel=data["channel"],
-            message=data["message"],
-            subject=data.get("subject", ""),
-            template=template,
-            context_data=data.get("context_data", {}),
-            priority=data.get("priority", "normal"),
-        )
+        service = self.get_service()
+        serializer = self._request_serializer(SendNotificationSerializer, request, service)
+        notification = serializer.save()
+
+        if deferred:
+            extra = {
+                "task_id": service.send_notification_async(notification),
+                "queued_for_async_processing": True,
+            }
+        else:
+            extra = {"sent_immediately": service.send_notification(notification)}
 
         return Response(
-            {
-                "message": f"Queued {len(recipients)} notifications for async processing",
-                "recipient_count": len(recipients),
-                "task_id": task_id,
-                "queued_for_async_processing": True,
-            },
-            status=status.HTTP_201_CREATED,
+            {**NotificationSerializer(notification).data, **extra}, status=status.HTTP_201_CREATED
         )
+
+    def _send_bulk(self, request, *, deferred):
+        """Массовая рассылка: только создать уведомления или создать и поставить в очередь."""
+
+        service = self.get_service()
+        serializer = self._request_serializer(BulkNotificationSerializer, request, service)
+
+        if deferred:
+            recipients_count = len(serializer.get_recipients())
+            body = {
+                "message": f"Queued {recipients_count} notifications for async processing",
+                "recipient_count": recipients_count,
+                "task_id": serializer.enqueue(),
+                "queued_for_async_processing": True,
+            }
+        else:
+            notifications = serializer.save()
+            body = {
+                "message": f"Created {len(notifications)} notifications",
+                "notifications": [
+                    {"id": n.id, "recipient": n.recipient.username, "status": n.status}
+                    for n in notifications
+                ],
+            }
+
+        return Response(body, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["post"])
     def retry(self, request, pk=None):
@@ -181,7 +176,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         if not notification.can_retry():
             raise RetryNotAllowedException("Невозможно повторить отправку уведомления")
 
-        success = NotificationService().retry_failed_notification(notification)
+        success = self.get_service().retry_failed_notification(notification)
 
         return Response(
             {
