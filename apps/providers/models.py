@@ -4,13 +4,15 @@ from django.core.exceptions import ValidationError
 
 class Provider(models.Model):
     PROVIDER_TYPES = [
-        ('email', 'Email'),
-        ('sms', 'SMS'),
-        ('push', 'Push Notification'),
+        ("email", "Email"),
+        ("sms", "SMS"),
+        ("push", "Push Notification"),
     ]
 
     name = models.CharField(max_length=100, unique=True, verbose_name="Название")
-    provider_type = models.CharField(max_length=20, choices=PROVIDER_TYPES, verbose_name="Тип провайдера")
+    provider_type = models.CharField(
+        max_length=20, choices=PROVIDER_TYPES, verbose_name="Тип провайдера"
+    )
     is_active = models.BooleanField(default=True, verbose_name="Активен")
     is_default = models.BooleanField(default=False, verbose_name="По умолчанию")
 
@@ -25,10 +27,10 @@ class Provider(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
 
     class Meta:
-        db_table = 'providers'
+        db_table = "providers"
         verbose_name = "Провайдер"
         verbose_name_plural = "Провайдеры"
-        ordering = ['provider_type', 'priority']
+        ordering = ["provider_type", "priority"]
 
     def __str__(self):
         return f"{self.name} ({self.provider_type})"
@@ -38,7 +40,9 @@ class Provider(models.Model):
 
 
 class ProviderUsage(models.Model):
-    provider = models.ForeignKey(Provider, on_delete=models.CASCADE, related_name='usage_stats', verbose_name="Провайдер")
+    provider = models.ForeignKey(
+        Provider, on_delete=models.CASCADE, related_name="usage_stats", verbose_name="Провайдер"
+    )
 
     requests_count = models.PositiveIntegerField(default=0, verbose_name="Количество запросов")
     success_count = models.PositiveIntegerField(default=0, verbose_name="Успешных запросов")
@@ -53,13 +57,13 @@ class ProviderUsage(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
 
     class Meta:
-        db_table = 'provider_usage'
+        db_table = "provider_usage"
         verbose_name = "Использование провайдера"
         verbose_name_plural = "Использование провайдеров"
-        unique_together = ['provider', 'date', 'hour']
+        unique_together = ["provider", "date", "hour"]
         indexes = [
-            models.Index(fields=['provider', 'date']),
-            models.Index(fields=['date', 'hour']),
+            models.Index(fields=["provider", "date"]),
+            models.Index(fields=["date", "hour"]),
         ]
 
     def __str__(self):
@@ -73,7 +77,9 @@ class ProviderUsage(models.Model):
 
 
 class ProviderCredential(models.Model):
-    provider = models.OneToOneField(Provider, on_delete=models.CASCADE, related_name='credentials', verbose_name="Провайдер")
+    provider = models.OneToOneField(
+        Provider, on_delete=models.CASCADE, related_name="credentials", verbose_name="Провайдер"
+    )
 
     api_key = models.CharField(max_length=255, blank=True, verbose_name="API ключ")
     api_secret = models.CharField(max_length=255, blank=True, verbose_name="API секрет")
@@ -89,7 +95,7 @@ class ProviderCredential(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
 
     class Meta:
-        db_table = 'provider_credentials'
+        db_table = "provider_credentials"
         verbose_name = "Ключи провайдера"
         verbose_name_plural = "Ключи провайдеров"
 

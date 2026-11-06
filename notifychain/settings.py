@@ -5,11 +5,11 @@ import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = config("SECRET_KEY")
 
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = config("DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -58,11 +58,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "notifychain.wsgi.application"
 
-database_url = config('DATABASE_URL', default='sqlite:///db.sqlite3')
-DATABASES = {
-    'default': dj_database_url.parse(database_url)
-}
-
+database_url = config("DATABASE_URL", default="sqlite:///db.sqlite3")
+DATABASES = {"default": dj_database_url.parse(database_url)}
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -81,7 +78,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-
 LANGUAGE_CODE = "ru-ru"
 
 TIME_ZONE = "Europe/Moscow"
@@ -91,14 +87,13 @@ USE_I18N = True
 USE_TZ = True
 
 LANGUAGES = [
-    ('ru', 'Русский'),
-    ('en', 'English'),
+    ("ru", "Русский"),
+    ("en", "English"),
 ]
 
 LOCALE_PATHS = [
-    BASE_DIR / 'locale',
+    BASE_DIR / "locale",
 ]
-
 
 
 STATIC_URL = "static/"
@@ -107,14 +102,14 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
     ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
 }
 
 CORS_ALLOWED_ORIGINS = [
@@ -124,72 +119,69 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
-EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
-EMAIL_HOST = config('EMAIL_HOST', default='')
-EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
-EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = config("EMAIL_HOST", default="")
+EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 
-SMTP_HOST = config('SMTP_HOST', default='smtp.gmail.com')
-SMTP_PORT = config('SMTP_PORT', default=587, cast=int)
-SMTP_USERNAME = config('SMTP_USERNAME', default='')
-SMTP_PASSWORD = config('SMTP_PASSWORD', default='')
-SMTP_USE_TLS = config('SMTP_USE_TLS', default=True, cast=bool)
-FROM_EMAIL = config('FROM_EMAIL', default='')
+SMTP_HOST = config("SMTP_HOST", default="smtp.gmail.com")
+SMTP_PORT = config("SMTP_PORT", default=587, cast=int)
+SMTP_USERNAME = config("SMTP_USERNAME", default="")
+SMTP_PASSWORD = config("SMTP_PASSWORD", default="")
+SMTP_USE_TLS = config("SMTP_USE_TLS", default=True, cast=bool)
+FROM_EMAIL = config("FROM_EMAIL", default="")
 
-SENDGRID_API_KEY = config('SENDGRID_API_KEY', default='')
+SENDGRID_API_KEY = config("SENDGRID_API_KEY", default="")
 
-TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
-TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
-TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='')
+TWILIO_ACCOUNT_SID = config("TWILIO_ACCOUNT_SID", default="")
+TWILIO_AUTH_TOKEN = config("TWILIO_AUTH_TOKEN", default="")
+TWILIO_PHONE_NUMBER = config("TWILIO_PHONE_NUMBER", default="")
 
-TELEGRAM_BOT_TOKEN = config('TELEGRAM_BOT_TOKEN', default='')
+TELEGRAM_BOT_TOKEN = config("TELEGRAM_BOT_TOKEN", default="")
 
-REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
+REDIS_URL = config("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
-CELERY_ACCEPT_CONTENT = ['application/json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ["application/json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 
-DEFAULT_EMAIL_PROVIDER = config('DEFAULT_EMAIL_PROVIDER', default='smtp')
-DEFAULT_SMS_PROVIDER = config('DEFAULT_SMS_PROVIDER', default='twilio')
-DEFAULT_PUSH_PROVIDER = config('DEFAULT_PUSH_PROVIDER', default='')
+DEFAULT_EMAIL_PROVIDER = config("DEFAULT_EMAIL_PROVIDER", default="smtp")
+DEFAULT_SMS_PROVIDER = config("DEFAULT_SMS_PROVIDER", default="twilio")
+DEFAULT_PUSH_PROVIDER = config("DEFAULT_PUSH_PROVIDER", default="")
 
-RATE_LIMIT_ENABLED = config('RATE_LIMIT_ENABLED', default=True, cast=bool)
-MAX_NOTIFICATIONS_PER_MINUTE = config('MAX_NOTIFICATIONS_PER_MINUTE', default=10, cast=int)
-MAX_NOTIFICATIONS_PER_HOUR = config('MAX_NOTIFICATIONS_PER_HOUR', default=100, cast=int)
+RATE_LIMIT_ENABLED = config("RATE_LIMIT_ENABLED", default=True, cast=bool)
+MAX_NOTIFICATIONS_PER_MINUTE = config("MAX_NOTIFICATIONS_PER_MINUTE", default=10, cast=int)
+MAX_NOTIFICATIONS_PER_HOUR = config("MAX_NOTIFICATIONS_PER_HOUR", default=100, cast=int)
 
-SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
-SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
-CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
+SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=False, cast=bool)
+SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=False, cast=bool)
+CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=False, cast=bool)
 
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
         },
     },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose'
-        },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
     },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
     },
-    'loggers': {
-        'notifychain': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
+    "loggers": {
+        "notifychain": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
         },
     },
 }

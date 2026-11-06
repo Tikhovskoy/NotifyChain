@@ -14,21 +14,26 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
 
+
 def api_root(request):
-    return JsonResponse({
-        'message': 'NotifyChain API',
-        'version': '1.0',
-        'endpoints': {
-            'notifications': '/api/notifications/',
-            'templates': '/api/templates/',
-            'providers': '/api/providers/',
-            'admin': '/admin/'
+    return JsonResponse(
+        {
+            "message": "NotifyChain API",
+            "version": "1.0",
+            "endpoints": {
+                "notifications": "/api/notifications/",
+                "templates": "/api/templates/",
+                "providers": "/api/providers/",
+                "admin": "/admin/",
+            },
         }
-    })
+    )
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
