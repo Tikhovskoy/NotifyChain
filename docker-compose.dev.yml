@@ -3,6 +3,7 @@ version: '3.8'
 services:
   web:
     build: .
+    command: python manage.py runserver 0.0.0.0:8000
     ports:
       - "8000:8000"
     environment:
@@ -23,6 +24,8 @@ services:
   celery:
     build: .
     command: celery -A notifychain worker -l info
+    healthcheck:
+      disable: true
     environment:
       - DATABASE_URL=postgresql://notifychain:password@db:5432/notifychain
       - REDIS_URL=redis://redis:6379/0

@@ -22,6 +22,8 @@ services:
   celery:
     build: .
     command: celery -A notifychain worker -l info
+    healthcheck:
+      disable: true
     environment:
       - DATABASE_URL=postgresql://notifychain:${DB_PASSWORD:-securepassword123}@db:5432/notifychain
       - REDIS_URL=redis://redis:6379/0
