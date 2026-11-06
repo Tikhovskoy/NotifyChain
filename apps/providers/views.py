@@ -1,9 +1,11 @@
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import status, viewsets
+from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
+
+from apps.notifications.exceptions import ValidationException
 
 from .models import Provider, ProviderUsage
 from .serializers import (
@@ -27,23 +29,15 @@ class ProviderViewSet(viewsets.ModelViewSet):
     def test(self, request, pk=None):
         provider = self.get_object()
 
-        provider_manager = ProviderManager()
+        test_result = ProviderManager().test_provider(provider.id)
 
-        try:
-            test_result = provider_manager.test_provider(provider.id)
-
-            return Response(
-                {
-                    "provider_id": provider.id,
-                    "provider_name": provider.name,
-                    "test_result": test_result,
-                }
-            )
-
-        except Exception as e:
-            return Response(
-                {"error": f"Ошибка теста: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST
-            )
+        return Response(
+            {
+                "provider_id": provider.id,
+                "provider_name": provider.name,
+                "test_result": test_result,
+            }
+        )
 
     @action(detail=True, methods=["get"])
     def stats(self, request, pk=None):
@@ -55,47 +49,25 @@ class ProviderViewSet(viewsets.ModelViewSet):
         except (ValueError, TypeError):
             days = 7
 
-        provider_manager = ProviderManager()
-
-        try:
-            stats = provider_manager.get_provider_statistics(provider.id, days)
-
-            return Response(stats)
-
-        except Exception as e:
-            return Response(
-                {"error": f"Ошибка получения статистики: {str(e)}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        return Response(ProviderManager().get_provider_statistics(provider.id, days))
 
     @action(detail=False, methods=["get"])
     def available(self, request):
         channel = request.query_params.get("channel")
 
         if not channel:
-            return Response(
-                {"error": "Параметр channel обязателен"}, status=status.HTTP_400_BAD_REQUEST
-            )
+            raise ValidationException("Параметр channel обязателен")
 
-        provider_manager = ProviderManager()
+        available_providers = ProviderManager().get_available_providers(channel)
+        serializer = ProviderSerializer(available_providers, many=True)
 
-        try:
-            available_providers = provider_manager.get_available_providers(channel)
-            serializer = ProviderSerializer(available_providers, many=True)
-
-            return Response(
-                {
-                    "channel": channel,
-                    "count": len(available_providers),
-                    "providers": serializer.data,
-                }
-            )
-
-        except Exception as e:
-            return Response(
-                {"error": f"Ошибка получения доступных провайдеров: {str(e)}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        return Response(
+            {
+                "channel": channel,
+                "count": len(available_providers),
+                "providers": serializer.data,
+            }
+        )
 
 
 class ProviderUsageViewSet(viewsets.ReadOnlyModelViewSet):

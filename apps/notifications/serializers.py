@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
+from .exceptions import NotificationException
 from .models import Notification, NotificationLog, NotificationTemplate
 from .services import NotificationService, TemplateService
 from .utils import NotificationValidator
@@ -134,8 +135,8 @@ class SendNotificationSerializer(serializers.Serializer):
             NotificationValidator.validate_channel(data["channel"])
             NotificationValidator.validate_priority(data["priority"])
             NotificationValidator.validate_message_content(data["message"], data.get("subject", ""))
-        except Exception as e:
-            raise serializers.ValidationError(str(e))
+        except NotificationException as e:
+            raise serializers.ValidationError(str(e)) from e
 
         return data
 

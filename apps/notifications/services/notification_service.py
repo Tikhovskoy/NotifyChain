@@ -7,6 +7,11 @@ from django.utils import timezone
 
 from apps.users.models import NotificationPreference, UserProfile
 
+from ..exceptions import (
+    NotificationNotReadyException,
+    UserPreferenceException,
+    ValidationException,
+)
 from ..models import Notification, NotificationLog, NotificationTemplate
 
 logger = logging.getLogger("notifychain.notifications")
@@ -33,10 +38,14 @@ class NotificationService:
 
         recipient_address = self._get_recipient_address(recipient, channel)
         if not recipient_address:
-            raise ValueError(f"Не найден {channel} адрес для пользователя {recipient.username}")
+            raise ValidationException(
+                f"Не найден {channel} адрес для пользователя {recipient.username}"
+            )
 
         if not self._can_send_to_user(recipient, channel):
-            raise ValueError(f"Пользователь {recipient.username} отключил {channel} уведомления")
+            raise UserPreferenceException(
+                f"Пользователь {recipient.username} отключил {channel} уведомления"
+            )
 
         notification = Notification.objects.create(
             recipient=recipient,
@@ -151,7 +160,9 @@ class NotificationService:
         from tasks.notification_tasks import send_notification_task
 
         if not notification.is_ready_to_send():
-            raise ValueError(f"Уведомление {notification.id} не готово к отправке")
+            raise NotificationNotReadyException(
+                f"Уведомление {notification.id} не готово к отправке"
+            )
 
         notification.status = "queued"
         notification.save()
@@ -217,7 +228,7 @@ class NotificationService:
     ) -> Notification:
 
         if scheduled_at <= timezone.now():
-            raise ValueError("Время отправки должно быть в будущем")
+            raise ValidationException("Время отправки должно быть в будущем")
 
         notification = self.create_notification(
             recipient=recipient,

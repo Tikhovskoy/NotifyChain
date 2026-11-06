@@ -5,6 +5,7 @@ from typing import Any
 from django.template import Context, Template
 from django.template.exceptions import TemplateSyntaxError
 
+from ..exceptions import TemplateException
 from ..models import NotificationTemplate
 
 logger = logging.getLogger("notifychain.notifications")
@@ -23,7 +24,7 @@ class TemplateService:
 
         except Exception as e:
             logger.error(f"Ошибка рендеринга шаблона {template.name}: {str(e)}")
-            raise ValueError(f"Ошибка рендеринга шаблона: {str(e)}")
+            raise TemplateException(f"Ошибка рендеринга шаблона: {str(e)}")
 
     def render_message(self, message_template: str, context_data: dict[str, Any]) -> str:
 
@@ -31,7 +32,7 @@ class TemplateService:
             return self._render_string(message_template, context_data)
         except Exception as e:
             logger.error(f"Ошибка рендеринга шаблона сообщения: {str(e)}")
-            raise ValueError(f"Ошибка рендеринга сообщения: {str(e)}")
+            raise TemplateException(f"Ошибка рендеринга сообщения: {str(e)}")
 
     def validate_template(self, template: NotificationTemplate) -> dict[str, Any]:
 
@@ -100,7 +101,7 @@ class TemplateService:
 
         validation = self.validate_template(template)
         if not validation["is_valid"]:
-            raise ValueError(f"Ошибка валидации шаблона: {', '.join(validation['errors'])}")
+            raise TemplateException(f"Ошибка валидации шаблона: {', '.join(validation['errors'])}")
 
         template.save()
         logger.info(f"Создан шаблон {name} для {template_type}")
@@ -115,9 +116,9 @@ class TemplateService:
             return template.render(context)
 
         except TemplateSyntaxError as e:
-            raise ValueError(f"Ошибка синтаксиса шаблона: {str(e)}")
+            raise TemplateException(f"Ошибка синтаксиса шаблона: {str(e)}")
         except Exception as e:
-            raise ValueError(f"Ошибка рендеринга шаблона: {str(e)}")
+            raise TemplateException(f"Ошибка рендеринга шаблона: {str(e)}")
 
     def _extract_variables(self, template_string: str) -> list:
 
@@ -130,7 +131,7 @@ class TemplateService:
         try:
             Template(template_string)
         except TemplateSyntaxError as e:
-            raise ValueError(f"Неверный синтаксис Django шаблона: {str(e)}")
+            raise TemplateException(f"Неверный синтаксис Django шаблона: {str(e)}")
 
     def _generate_sample_data(self, variables: list) -> dict[str, Any]:
 

@@ -9,6 +9,7 @@ from rest_framework.response import Response
 
 from apps.permissions import IsStaffOrReadOnly
 
+from .exceptions import RetryNotAllowedException
 from .models import Notification, NotificationTemplate
 from .serializers import (
     BulkNotificationSerializer,
@@ -38,31 +39,20 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
     def preview(self, request, pk=None):
         template = self.get_object()
         serializer = TemplatePreviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if serializer.is_valid():
-            template_service = TemplateService()
+        context_data = serializer.validated_data.get("context_data", {})
+        preview = TemplateService().get_template_preview(template, context_data)
 
-            try:
-                context_data = serializer.validated_data.get("context_data", {})
-                preview = template_service.get_template_preview(template, context_data)
-
-                return Response(
-                    {
-                        "template_id": template.id,
-                        "template_name": template.name,
-                        "rendered_subject": preview["subject"],
-                        "rendered_body": preview["body"],
-                        "context_data": context_data,
-                    }
-                )
-
-            except Exception as e:
-                return Response(
-                    {"error": f"Ошибка генерации превью: {str(e)}"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "template_id": template.id,
+                "template_name": template.name,
+                "rendered_subject": preview["subject"],
+                "rendered_body": preview["body"],
+                "context_data": context_data,
+            }
+        )
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def validate_template(self, request, pk=None):
@@ -107,159 +97,100 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"])
     def send(self, request):
         serializer = SendNotificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if serializer.is_valid():
-            try:
-                notification = serializer.save()
+        notification = serializer.save()
+        success = NotificationService().send_notification(notification)
 
-                notification_service = NotificationService()
-                success = notification_service.send_notification(notification)
+        response_data = NotificationSerializer(notification).data
+        response_data["sent_immediately"] = success
 
-                response_data = NotificationSerializer(notification).data
-                response_data["sent_immediately"] = success
-
-                return Response(response_data, status=status.HTTP_201_CREATED)
-
-            except Exception as e:
-                return Response(
-                    {"error": f"Ошибка отправки уведомления: {str(e)}"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"])
     def send_async(self, request):
         serializer = SendNotificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if serializer.is_valid():
-            try:
-                notification = serializer.save()
+        notification = serializer.save()
+        task_id = NotificationService().send_notification_async(notification)
 
-                notification_service = NotificationService()
-                task_id = notification_service.send_notification_async(notification)
+        response_data = NotificationSerializer(notification).data
+        response_data["task_id"] = task_id
+        response_data["queued_for_async_processing"] = True
 
-                response_data = NotificationSerializer(notification).data
-                response_data["task_id"] = task_id
-                response_data["queued_for_async_processing"] = True
-
-                return Response(response_data, status=status.HTTP_201_CREATED)
-
-            except Exception as e:
-                return Response(
-                    {"error": f"Ошибка постановки уведомления в очередь: {str(e)}"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["post"])
     def send_bulk(self, request):
         serializer = BulkNotificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if serializer.is_valid():
-            try:
-                notifications = serializer.save()
+        notifications = serializer.save()
 
-                return Response(
+        return Response(
+            {
+                "message": f"Created {len(notifications)} notifications",
+                "notifications": [
                     {
-                        "message": f"Created {len(notifications)} notifications",
-                        "notifications": [
-                            {
-                                "id": notif.id,
-                                "recipient": notif.recipient.username,
-                                "status": notif.status,
-                            }
-                            for notif in notifications
-                        ],
-                    },
-                    status=status.HTTP_201_CREATED,
-                )
-
-            except Exception as e:
-                return Response(
-                    {"error": f"Ошибка создания массовых уведомлений: {str(e)}"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                        "id": notif.id,
+                        "recipient": notif.recipient.username,
+                        "status": notif.status,
+                    }
+                    for notif in notifications
+                ],
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=False, methods=["post"])
     def send_bulk_async(self, request):
         serializer = BulkNotificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if serializer.is_valid():
-            try:
-                from django.contrib.auth.models import User
+        data = serializer.validated_data
+        recipients = list(User.objects.filter(id__in=data["recipient_ids"]))
+        template = None
+        if data.get("template_id"):
+            template = NotificationTemplate.objects.get(id=data["template_id"])
 
-                recipients = User.objects.filter(id__in=serializer.validated_data["recipient_ids"])
-                template = None
+        task_id = NotificationService().send_bulk_notifications_async(
+            recipients=recipients,
+            channel=data["channel"],
+            message=data["message"],
+            subject=data.get("subject", ""),
+            template=template,
+            context_data=data.get("context_data", {}),
+            priority=data.get("priority", "normal"),
+        )
 
-                if serializer.validated_data.get("template_id"):
-                    from .models import NotificationTemplate
-
-                    template = NotificationTemplate.objects.get(
-                        id=serializer.validated_data["template_id"]
-                    )
-
-                notification_service = NotificationService()
-                task_id = notification_service.send_bulk_notifications_async(
-                    recipients=list(recipients),
-                    channel=serializer.validated_data["channel"],
-                    message=serializer.validated_data["message"],
-                    subject=serializer.validated_data.get("subject", ""),
-                    template=template,
-                    context_data=serializer.validated_data.get("context_data", {}),
-                    priority=serializer.validated_data.get("priority", "normal"),
-                )
-
-                return Response(
-                    {
-                        "message": f"Queued {len(recipients)} notifications for async processing",
-                        "recipient_count": len(recipients),
-                        "task_id": task_id,
-                        "queued_for_async_processing": True,
-                    },
-                    status=status.HTTP_201_CREATED,
-                )
-
-            except Exception as e:
-                return Response(
-                    {"error": f"Ошибка массовой постановки в очередь: {str(e)}"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "message": f"Queued {len(recipients)} notifications for async processing",
+                "recipient_count": len(recipients),
+                "task_id": task_id,
+                "queued_for_async_processing": True,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=["post"])
     def retry(self, request, pk=None):
         notification = self.get_object()
 
         if not notification.can_retry():
-            return Response(
-                {"error": "Невозможно повторить отправку уведомления"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            raise RetryNotAllowedException("Невозможно повторить отправку уведомления")
 
-        notification_service = NotificationService()
+        success = NotificationService().retry_failed_notification(notification)
 
-        try:
-            success = notification_service.retry_failed_notification(notification)
-
-            return Response(
-                {
-                    "notification_id": notification.id,
-                    "retry_successful": success,
-                    "current_status": notification.status,
-                    "retry_count": notification.retry_count,
-                }
-            )
-
-        except Exception as e:
-            return Response(
-                {"error": f"Ошибка повторной отправки: {str(e)}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        return Response(
+            {
+                "notification_id": notification.id,
+                "retry_successful": success,
+                "current_status": notification.status,
+                "retry_count": notification.retry_count,
+            }
+        )
 
     @action(detail=False, methods=["get"])
     def stats(self, request):

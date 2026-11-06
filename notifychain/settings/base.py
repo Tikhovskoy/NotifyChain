@@ -102,6 +102,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": "apps.exception_handler.api_exception_handler",
     # TokenAuthentication стоит первой: именно она задаёт заголовок WWW-Authenticate,
     # благодаря которому аноним получает 401, а не 403.
     "DEFAULT_AUTHENTICATION_CLASSES": [

@@ -4,7 +4,11 @@ from typing import Any
 
 from django.utils import timezone
 
-from apps.notifications.exceptions import DeliveryException, ProviderException
+from apps.notifications.exceptions import (
+    DeliveryException,
+    ProviderException,
+    ProviderNotFoundException,
+)
 
 from ..models import Provider, ProviderUsage
 from .base_provider import BaseProvider, MockEmailProvider, MockPushProvider, MockSMSProvider
@@ -36,7 +40,7 @@ class ProviderManager:
             provider = self._get_default_provider(channel)
 
         if not provider:
-            raise ProviderException(f"Провайдер не найден для канала {channel}")
+            raise ProviderNotFoundException(f"Провайдер не найден для канала {channel}")
 
         if not provider.is_active:
             raise ProviderException(f"Провайдер {provider.name} неактивен")
@@ -56,7 +60,7 @@ class ProviderManager:
         if provider_name:
             providers_to_try = [self._get_provider_by_name(provider_name)]
             if not providers_to_try[0]:
-                raise ProviderException(f"Провайдер {provider_name} не найден")
+                raise ProviderNotFoundException(f"Провайдер {provider_name} не найден")
         else:
             providers_to_try = self.get_available_providers(channel)
             if not providers_to_try:
