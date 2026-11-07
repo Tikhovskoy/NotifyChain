@@ -19,6 +19,10 @@ PRODUCTION_ENV = {
     "ALLOWED_HOSTS": "api.example.com,notify.example.com",
     "DATABASE_URL": "postgresql://notify:pass@db:5432/notifychain",
     "REDIS_URL": "redis://redis:6379/0",
+    # Явно: значения из локального .env разработчика не должны влиять на проверки
+    "SECURE_SSL_REDIRECT": "True",
+    "TRUST_X_FORWARDED_PROTO": "False",
+    "CORS_ALLOWED_ORIGINS": "",
 }
 PRODUCTION = "notifychain.settings.production"
 DEV = "notifychain.settings.dev"
