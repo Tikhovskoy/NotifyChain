@@ -1,0 +1,8 @@
+# Окружение разработки и CI: всё из requirements.in плюс инструменты.
+# Версии общих пакетов совпадают с requirements.txt благодаря ограничению -c.
+-c requirements.txt
+-r requirements.in
+
+coverage>=7.6
+ruff>=0.8
+pip-tools>=7.4
