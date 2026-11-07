@@ -13,6 +13,10 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 
 app.autodiscover_tasks()
 
+# Задачи лежат в пакете tasks/ в корне проекта, а не в приложениях Django, поэтому
+# autodiscover_tasks() их не находит. Без этого воркер отвечает KeyError на каждую задачу.
+app.conf.imports = ("tasks.notification_tasks",)
+
 app.conf.update(
     task_serializer="json",
     accept_content=["json"],
