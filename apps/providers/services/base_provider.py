@@ -1,24 +1,23 @@
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
 import logging
+from abc import ABC, abstractmethod
+from typing import Any
 
-logger = logging.getLogger('notifychain.providers')
+logger = logging.getLogger("notifychain.providers")
 
 
 class BaseProvider(ABC):
-
-    def __init__(self, provider_config: Dict[str, Any] = None):
+    def __init__(self, provider_config: dict[str, Any] = None):
         self.config = provider_config or {}
-        self.name = self.config.get('name', 'Unknown')
-        self.provider_type = getattr(self, 'provider_type', 'unknown')
+        self.name = self.config.get("name", "Unknown")
+        self.provider_type = getattr(self, "provider_type", "unknown")
 
     def send(
         self,
         recipient: str,
         message: str,
         subject: str = "",
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
 
         return self.send_notification(recipient, message, subject, metadata)
 
@@ -28,26 +27,26 @@ class BaseProvider(ABC):
         recipient: str,
         message: str,
         subject: str = "",
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
 
         pass
 
     @abstractmethod
-    def validate_config(self) -> Dict[str, Any]:
+    def validate_config(self) -> dict[str, Any]:
 
         pass
 
     @abstractmethod
-    def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
+    def get_delivery_status(self, message_id: str) -> dict[str, Any]:
 
         pass
 
-    def get_rate_limit_info(self) -> Dict[str, int]:
+    def get_rate_limit_info(self) -> dict[str, int]:
 
         return {
-            'requests_per_minute': self.config.get('rate_limit_per_minute', 60),
-            'requests_per_hour': self.config.get('rate_limit_per_hour', 1000)
+            "requests_per_minute": self.config.get("rate_limit_per_minute", 60),
+            "requests_per_hour": self.config.get("rate_limit_per_hour", 1000),
         }
 
     def format_recipient(self, recipient: str) -> str:
@@ -55,24 +54,13 @@ class BaseProvider(ABC):
         return recipient
 
     def prepare_message(
-        self,
-        message: str,
-        subject: str = "",
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, message: str, subject: str = "", metadata: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
 
-        return {
-            'message': message,
-            'subject': subject,
-            'metadata': metadata or {}
-        }
+        return {"message": message, "subject": subject, "metadata": metadata or {}}
 
     def log_send_attempt(
-        self,
-        recipient: str,
-        success: bool,
-        response: Dict[str, Any],
-        error: Optional[str] = None
+        self, recipient: str, success: bool, response: dict[str, Any], error: str | None = None
     ):
 
         if success:
@@ -82,108 +70,96 @@ class BaseProvider(ABC):
 
 
 class MockEmailProvider(BaseProvider):
-    provider_type = 'email'
-    provider_name = 'mock_email'
+    provider_type = "email"
+    provider_name = "mock_email"
 
     def send_notification(
         self,
         recipient: str,
         message: str,
         subject: str = "",
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
 
         logger.info(f"Mock Email: Отправка '{subject}' к {recipient}")
 
         response = {
-            'success': True,
-            'message_id': f"email_{hash(recipient + message)}_mock",
-            'provider': self.provider_name,
-            'recipient': recipient,
-            'timestamp': 'mock_timestamp'
+            "success": True,
+            "message_id": f"email_{hash(recipient + message)}_mock",
+            "provider": self.provider_name,
+            "recipient": recipient,
+            "timestamp": "mock_timestamp",
         }
 
         self.log_send_attempt(recipient, True, response)
         return response
 
-    def validate_config(self) -> Dict[str, Any]:
-        return {'is_valid': True, 'errors': []}
+    def validate_config(self) -> dict[str, Any]:
+        return {"is_valid": True, "errors": []}
 
-    def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
-        return {
-            'status': 'delivered',
-            'delivered_at': 'mock_timestamp',
-            'message_id': message_id
-        }
+    def get_delivery_status(self, message_id: str) -> dict[str, Any]:
+        return {"status": "delivered", "delivered_at": "mock_timestamp", "message_id": message_id}
 
 
 class MockSMSProvider(BaseProvider):
-    provider_type = 'sms'
-    provider_name = 'mock_sms'
+    provider_type = "sms"
+    provider_name = "mock_sms"
 
     def send_notification(
         self,
         recipient: str,
         message: str,
         subject: str = "",
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
 
         logger.info(f"Mock SMS: Отправка к {recipient}: {message[:50]}...")
 
         response = {
-            'success': True,
-            'message_id': f"sms_{hash(recipient + message)}_mock",
-            'provider': self.provider_name,
-            'recipient': recipient,
-            'timestamp': 'mock_timestamp'
+            "success": True,
+            "message_id": f"sms_{hash(recipient + message)}_mock",
+            "provider": self.provider_name,
+            "recipient": recipient,
+            "timestamp": "mock_timestamp",
         }
 
         self.log_send_attempt(recipient, True, response)
         return response
 
-    def validate_config(self) -> Dict[str, Any]:
-        return {'is_valid': True, 'errors': []}
+    def validate_config(self) -> dict[str, Any]:
+        return {"is_valid": True, "errors": []}
 
-    def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
-        return {
-            'status': 'delivered',
-            'delivered_at': 'mock_timestamp',
-            'message_id': message_id
-        }
+    def get_delivery_status(self, message_id: str) -> dict[str, Any]:
+        return {"status": "delivered", "delivered_at": "mock_timestamp", "message_id": message_id}
 
 
 class MockPushProvider(BaseProvider):
-    provider_type = 'push'
-    provider_name = 'mock_push'
+    provider_type = "push"
+    provider_name = "mock_push"
 
     def send_notification(
         self,
         recipient: str,
         message: str,
         subject: str = "",
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
 
         logger.info(f"Mock Push: Отправка '{subject}' на устройство {recipient}")
 
         response = {
-            'success': True,
-            'message_id': f"push_{hash(recipient + message)}_mock",
-            'provider': self.provider_name,
-            'recipient': recipient,
-            'timestamp': 'mock_timestamp'
+            "success": True,
+            "message_id": f"push_{hash(recipient + message)}_mock",
+            "provider": self.provider_name,
+            "recipient": recipient,
+            "timestamp": "mock_timestamp",
         }
 
         self.log_send_attempt(recipient, True, response)
         return response
 
-    def validate_config(self) -> Dict[str, Any]:
-        return {'is_valid': True, 'errors': []}
+    def validate_config(self) -> dict[str, Any]:
+        return {"is_valid": True, "errors": []}
 
-    def get_delivery_status(self, message_id: str) -> Dict[str, Any]:
-        return {
-            'status': 'delivered',
-            'delivered_at': 'mock_timestamp',
-            'message_id': message_id
-        }
+    def get_delivery_status(self, message_id: str) -> dict[str, Any]:
+        return {"status": "delivered", "delivered_at": "mock_timestamp", "message_id": message_id}

@@ -1,63 +1,59 @@
-version: '3.8'
+# Боевая конфигурация: gunicorn, production-настройки, БД и Redis без открытых наружу портов.
+# Для разработки добавьте override:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Перед запуском: cp .env.example .env и заполните значения.
+
+x-app: &app
+  build: .
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql://notifychain:${DB_PASSWORD:?Задайте DB_PASSWORD в .env}@db:5432/notifychain
+    REDIS_URL: redis://redis:6379/0
+    DJANGO_SETTINGS_MODULE: notifychain.settings.production
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
 
 services:
   web:
-    build: .
+    <<: *app
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://notifychain:password@db:5432/notifychain
-      - REDIS_URL=redis://redis:6379/0
-      - DEBUG=False
-    env_file:
-      - .env
-    depends_on:
-      - db
-      - redis
-    volumes:
-      - .:/app
-    networks:
-      - notifychain-network
 
   celery:
-    build: .
+    <<: *app
     command: celery -A notifychain worker -l info
-    environment:
-      - DATABASE_URL=postgresql://notifychain:password@db:5432/notifychain
-      - REDIS_URL=redis://redis:6379/0
-    env_file:
-      - .env
-    depends_on:
-      - db
-      - redis
-    volumes:
-      - .:/app
-    networks:
-      - notifychain-network
+    # У воркера нет HTTP-порта, поэтому проверка из образа ему не подходит
+    healthcheck:
+      disable: true
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    networks:
-      - notifychain-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   db:
     image: postgres:15-alpine
     environment:
-      - POSTGRES_DB=notifychain
-      - POSTGRES_USER=notifychain
-      - POSTGRES_PASSWORD=password
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: notifychain
+      POSTGRES_USER: notifychain
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Задайте DB_PASSWORD в .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - notifychain-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notifychain -d notifychain"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
-
-networks:
-  notifychain-network:
-    driver: bridge

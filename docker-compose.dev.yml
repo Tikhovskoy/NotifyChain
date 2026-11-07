@@ -1,63 +1,27 @@
-version: '3.8'
+# Override для разработки. Запуск вместе с основным файлом:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Здесь runserver вместо gunicorn, dev-настройки, код из рабочей папки (правки видны сразу)
+# и открытые порты БД и Redis для отладки с хоста.
 
 services:
   web:
-    build: .
-    ports:
-      - "8000:8000"
+    command: python manage.py runserver 0.0.0.0:8000
     environment:
-      - DATABASE_URL=postgresql://notifychain:password@db:5432/notifychain
-      - REDIS_URL=redis://redis:6379/0
-      - DEBUG=True
-    env_file:
-      - .env
-    depends_on:
-      - db
-      - redis
+      DJANGO_SETTINGS_MODULE: notifychain.settings.dev
     volumes:
       - .:/app
-    networks:
-      - notifychain-network
 
   celery:
-    build: .
-    command: celery -A notifychain worker -l info
     environment:
-      - DATABASE_URL=postgresql://notifychain:password@db:5432/notifychain
-      - REDIS_URL=redis://redis:6379/0
-    env_file:
-      - .env
-    depends_on:
-      - db
-      - redis
+      DJANGO_SETTINGS_MODULE: notifychain.settings.dev
     volumes:
       - .:/app
-    networks:
-      - notifychain-network
 
   redis:
-    image: redis:7-alpine
     ports:
       - "6379:6379"
-    networks:
-      - notifychain-network
 
   db:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_DB=notifychain
-      - POSTGRES_USER=notifychain
-      - POSTGRES_PASSWORD=password
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - notifychain-network
-
-volumes:
-  postgres_data:
-
-networks:
-  notifychain-network:
-    driver: bridge

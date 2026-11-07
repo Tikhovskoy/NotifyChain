@@ -1,5 +1,5 @@
-from django.db import models
 from django.contrib.auth.models import User
+from django.db import models
 
 
 class SystemMetrics(models.Model):
@@ -16,11 +16,13 @@ class SystemMetrics(models.Model):
     active_users = models.PositiveIntegerField(default=0)
     queue_size = models.PositiveIntegerField(default=0)
 
-    average_delivery_time = models.FloatField(default=0.0, help_text="Среднее время доставки в секундах")
+    average_delivery_time = models.FloatField(
+        default=0.0, help_text="Среднее время доставки в секундах"
+    )
 
     class Meta:
-        db_table = 'system_metrics'
-        ordering = ['-timestamp']
+        db_table = "system_metrics"
+        ordering = ["-timestamp"]
 
     def __str__(self):
         return f"Metrics {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
@@ -38,16 +40,16 @@ class SystemMetrics(models.Model):
 
 class AlertRule(models.Model):
     METRIC_CHOICES = [
-        ('success_rate', 'Success Rate'),
-        ('queue_size', 'Queue Size'),
-        ('delivery_time', 'Delivery Time'),
-        ('error_rate', 'Error Rate'),
+        ("success_rate", "Success Rate"),
+        ("queue_size", "Queue Size"),
+        ("delivery_time", "Delivery Time"),
+        ("error_rate", "Error Rate"),
     ]
 
     CONDITION_CHOICES = [
-        ('gt', 'Greater Than'),
-        ('lt', 'Less Than'),
-        ('eq', 'Equal To'),
+        ("gt", "Greater Than"),
+        ("lt", "Less Than"),
+        ("eq", "Equal To"),
     ]
 
     name = models.CharField(max_length=100)
@@ -62,30 +64,30 @@ class AlertRule(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'alert_rules'
+        db_table = "alert_rules"
 
     def __str__(self):
         return f"Alert: {self.name}"
 
     def check_condition(self, value):
-        if self.condition == 'gt':
+        if self.condition == "gt":
             return value > self.threshold
-        elif self.condition == 'lt':
+        elif self.condition == "lt":
             return value < self.threshold
-        elif self.condition == 'eq':
+        elif self.condition == "eq":
             return value == self.threshold
         return False
 
 
 class Alert(models.Model):
     SEVERITY_CHOICES = [
-        ('info', 'Info'),
-        ('warning', 'Warning'),
-        ('error', 'Error'),
-        ('critical', 'Critical'),
+        ("info", "Info"),
+        ("warning", "Warning"),
+        ("error", "Error"),
+        ("critical", "Critical"),
     ]
 
-    rule = models.ForeignKey(AlertRule, on_delete=models.CASCADE, related_name='alerts')
+    rule = models.ForeignKey(AlertRule, on_delete=models.CASCADE, related_name="alerts")
     severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES)
 
     message = models.TextField()
@@ -99,8 +101,8 @@ class Alert(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'alerts'
-        ordering = ['-created_at']
+        db_table = "alerts"
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"Alert: {self.rule.name} - {self.severity}"
@@ -120,11 +122,11 @@ class PerformanceLog(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'performance_logs'
-        ordering = ['-timestamp']
+        db_table = "performance_logs"
+        ordering = ["-timestamp"]
         indexes = [
-            models.Index(fields=['operation', 'timestamp']),
-            models.Index(fields=['provider_name', 'success']),
+            models.Index(fields=["operation", "timestamp"]),
+            models.Index(fields=["provider_name", "success"]),
         ]
 
     def __str__(self):
@@ -151,9 +153,9 @@ class DeliveryReport(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'delivery_reports'
-        unique_together = ['date']
-        ordering = ['-date']
+        db_table = "delivery_reports"
+        unique_together = ["date"]
+        ordering = ["-date"]
 
     def __str__(self):
         return f"Report {self.date}"

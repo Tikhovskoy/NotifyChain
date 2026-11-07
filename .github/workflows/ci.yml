@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Фиктивные значения для проверок. Реальных секретов в CI нет.
+  SECRET_KEY: ci-only-fake-key-abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz
+
+jobs:
+  lint:
+    name: Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check .
+      - name: Format
+        run: ruff format --check .
+
+  checks:
+    name: Django checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: System check
+        run: python manage.py check
+        env:
+          DJANGO_SETTINGS_MODULE: notifychain.settings.dev
+      - name: Deploy check (production-настройки, предупреждения считаются ошибками)
+        run: python manage.py check --deploy --fail-level WARNING
+        env:
+          DJANGO_SETTINGS_MODULE: notifychain.settings.production
+          ALLOWED_HOSTS: api.example.com
+          DATABASE_URL: postgresql://notify:notify@localhost:5432/notifychain
+          REDIS_URL: redis://localhost:6379/0
+      - name: Migrations are in sync with models
+        run: python manage.py makemigrations --check --dry-run
+        env:
+          DJANGO_SETTINGS_MODULE: notifychain.settings.dev
+
+  test:
+    name: Tests and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Tests with coverage
+        run: |
+          coverage run manage.py test
+          coverage report
+        env:
+          DJANGO_SETTINGS_MODULE: notifychain.settings.dev
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t notifychain:ci .
+      - name: Image starts and answers over HTTP
+        run: |
+          docker run -d --name web -p 8000:8000 \
+            -e SECRET_KEY="$SECRET_KEY" \
+            -e ALLOWED_HOSTS=localhost \
+            -e DATABASE_URL=postgresql://notify:notify@localhost:5432/notifychain \
+            -e REDIS_URL=redis://localhost:6379/0 \
+            -e SECURE_SSL_REDIRECT=False \
+            notifychain:ci
+          for _ in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/ || true)
+            [ "$code" = "200" ] && break
+            sleep 1
+          done
+          echo "HTTP $code"
+          test "$code" = "200"
+          docker logs web
