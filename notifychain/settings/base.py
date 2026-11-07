@@ -139,20 +139,8 @@ EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 
-SMTP_HOST = config("SMTP_HOST", default="smtp.gmail.com")
-SMTP_PORT = config("SMTP_PORT", default=587, cast=int)
-SMTP_USERNAME = config("SMTP_USERNAME", default="")
-SMTP_PASSWORD = config("SMTP_PASSWORD", default="")
-SMTP_USE_TLS = config("SMTP_USE_TLS", default=True, cast=bool)
-FROM_EMAIL = config("FROM_EMAIL", default="")
-
-SENDGRID_API_KEY = config("SENDGRID_API_KEY", default="")
-
-TWILIO_ACCOUNT_SID = config("TWILIO_ACCOUNT_SID", default="")
-TWILIO_AUTH_TOKEN = config("TWILIO_AUTH_TOKEN", default="")
-TWILIO_PHONE_NUMBER = config("TWILIO_PHONE_NUMBER", default="")
-
-TELEGRAM_BOT_TOKEN = config("TELEGRAM_BOT_TOKEN", default="")
+# Ключи SMTP, SendGrid, Twilio и Telegram здесь не нужны: классы провайдеров
+# (apps/providers/services) читают их из переменных окружения сами. Список в README.
 
 REDIS_URL = config("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_BROKER_URL = REDIS_URL
@@ -162,13 +150,9 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 
-DEFAULT_EMAIL_PROVIDER = config("DEFAULT_EMAIL_PROVIDER", default="smtp")
-DEFAULT_SMS_PROVIDER = config("DEFAULT_SMS_PROVIDER", default="twilio")
-DEFAULT_PUSH_PROVIDER = config("DEFAULT_PUSH_PROVIDER", default="")
-
+# Лимиты провайдеров (запросов в минуту и час) заданы у каждого Provider в БД.
+# Эта настройка выключает проверку целиком, например в нагрузочных тестах.
 RATE_LIMIT_ENABLED = config("RATE_LIMIT_ENABLED", default=True, cast=bool)
-MAX_NOTIFICATIONS_PER_MINUTE = config("MAX_NOTIFICATIONS_PER_MINUTE", default=10, cast=int)
-MAX_NOTIFICATIONS_PER_HOUR = config("MAX_NOTIFICATIONS_PER_HOUR", default=100, cast=int)
 
 LOGGING = {
     "version": 1,
