@@ -1,5 +1,6 @@
 """Инварианты контейнерной конфигурации, заданные в ТЗ."""
 
+import re
 from pathlib import Path
 
 from django.test import SimpleTestCase
@@ -37,6 +38,37 @@ class DockerfileTest(SimpleTestCase):
 
 
 class ComposeFilesTest(SimpleTestCase):
+    def test_there_is_one_main_file_and_one_dev_override(self):
+        names = sorted(path.name for path in BASE_DIR.glob("docker-compose*.yml"))
+
+        self.assertEqual(names, ["docker-compose.dev.yml", "docker-compose.yml"])
+
+    def test_main_file_has_no_default_database_password(self):
+        compose = read("docker-compose.yml")
+
+        self.assertNotIn("securepassword123", compose)
+        self.assertIn("${DB_PASSWORD:?", compose)
+
+    def test_main_file_waits_for_healthy_database_and_redis(self):
+        compose = read("docker-compose.yml")
+
+        self.assertIn("pg_isready", compose)
+        self.assertIn("redis-cli", compose)
+        self.assertEqual(compose.count("condition: service_healthy"), 2)
+
+    def test_main_file_runs_production_settings_and_dev_file_switches_to_dev(self):
+        self.assertIn("notifychain.settings.production", read("docker-compose.yml"))
+        self.assertIn("notifychain.settings.dev", read("docker-compose.dev.yml"))
+
+    def test_env_example_covers_every_compose_variable_and_holds_no_real_secrets(self):
+        example = read(".env.example")
+
+        for name in ("SECRET_KEY", "ALLOWED_HOSTS", "DB_PASSWORD"):
+            self.assertIn(f"{name}=", example)
+        # настоящий ключ SendGrid выглядит как SG.<22 символа>.<43 символа>
+        self.assertIsNone(re.search(r"SG\.[\w-]{20,}\.[\w-]{20,}", example))
+        self.assertIsNone(re.search(r"\bAC[0-9a-f]{32}\b", example))
+
     def test_runserver_is_used_only_in_the_dev_compose_file(self):
         compose_files = sorted(BASE_DIR.glob("docker-compose*.yml"))
 
