@@ -18,6 +18,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
+    "drf_spectacular",
     "corsheaders",
     "django_filters",
     "apps.notifications",
@@ -103,6 +104,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "apps.exception_handler.api_exception_handler",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     # TokenAuthentication стоит первой: именно она задаёт заголовок WWW-Authenticate,
     # благодаря которому аноним получает 401, а не 403.
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -123,6 +125,25 @@ REST_FRAMEWORK = {
     },
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "NotifyChain API",
+    "DESCRIPTION": (
+        "Сервис уведомлений с fallback между провайдерами (SMTP, SendGrid, Twilio, Telegram) "
+        "и между каналами (email, sms, push).\n\n"
+        "Авторизация: заголовок `Authorization: Token <токен>`. Токен выдаёт администратор "
+        "командой `python manage.py issue_token <имя>`."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    # Схема и документация открыты: в них нет данных, только описание API
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    "SERVE_AUTHENTICATION": [],
+    "COMPONENT_SPLIT_REQUEST": True,
+    # email, sms и push встречаются в нескольких моделях: даём набору одно имя
+    "ENUM_NAME_OVERRIDES": {"ChannelEnum": "apps.providers.models.Provider.PROVIDER_TYPES"},
+    "SWAGGER_UI_SETTINGS": {"persistAuthorization": True},
 }
 
 CORS_ALLOWED_ORIGINS = [

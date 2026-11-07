@@ -1,3 +1,5 @@
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import Provider, ProviderUsage
@@ -28,9 +30,10 @@ class ProviderSerializer(serializers.ModelSerializer):
         # config может содержать учётные данные: принимаем при записи, в ответах не отдаём
         extra_kwargs = {"config": {"write_only": True}}
 
-    def get_rate_limit_info(self, obj):
+    def get_rate_limit_info(self, obj) -> str:
         return f"{obj.rate_limit_per_minute}/мин, {obj.rate_limit_per_hour}/час"
 
+    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_usage_stats(self, obj):
         latest_usage = obj.usage_stats.order_by("-date").first()
         if latest_usage:
@@ -77,7 +80,7 @@ class ProviderUsageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["created_at", "updated_at", "success_rate"]
 
-    def get_success_rate_display(self, obj):
+    def get_success_rate_display(self, obj) -> str:
         return f"{obj.success_rate:.2f}%"
 
 

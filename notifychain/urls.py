@@ -18,6 +18,7 @@ Including another URLconf
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 
 def api_root(request):
@@ -29,6 +30,8 @@ def api_root(request):
                 "notifications": "/api/notifications/",
                 "templates": "/api/templates/",
                 "providers": "/api/providers/",
+                "docs": "/api/docs/",
+                "schema": "/api/schema/",
                 "admin": "/admin/",
             },
         }
@@ -37,6 +40,8 @@ def api_root(request):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
     path("api/", include("apps.notifications.urls")),
     path("api/", include("apps.providers.urls")),
     path("", api_root),

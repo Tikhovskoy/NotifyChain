@@ -28,7 +28,7 @@ class NotificationTemplateSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["created_at", "updated_at"]
 
-    def get_variables_count(self, obj):
+    def get_variables_count(self, obj) -> int:
         return len(obj.variables) if obj.variables else 0
 
     def validate(self, data):
@@ -93,7 +93,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             "logs",
         ]
 
-    def get_can_retry(self, obj):
+    def get_can_retry(self, obj) -> bool:
         return obj.can_retry()
 
 
@@ -106,14 +106,13 @@ class NotificationRequestSerializer(serializers.Serializer):
 
     service_class = NotificationService
 
-    channel = serializers.ChoiceField(choices=["email", "sms", "push"])
+    # Варианты берутся из модели, чтобы в OpenAPI это был один и тот же enum
+    channel = serializers.ChoiceField(choices=Notification._meta.get_field("channel").choices)
     message = serializers.CharField(max_length=10000)
     subject = serializers.CharField(max_length=200, required=False, allow_blank=True)
     template_id = serializers.IntegerField(required=False, allow_null=True)
     context_data = serializers.JSONField(default=dict)
-    priority = serializers.ChoiceField(
-        choices=["low", "normal", "high", "urgent"], default="normal"
-    )
+    priority = serializers.ChoiceField(choices=Notification.PRIORITY_CHOICES, default="normal")
 
     def get_service(self):
         return self.context.get("service") or self.service_class()

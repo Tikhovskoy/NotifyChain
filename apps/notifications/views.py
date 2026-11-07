@@ -1,5 +1,7 @@
 from django.contrib.auth.models import User
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -11,6 +13,17 @@ from apps.permissions import IsStaffOrReadOnly
 
 from .exceptions import RetryNotAllowedException
 from .models import Notification, NotificationTemplate
+from .schema_serializers import (
+    BulkCreatedSerializer,
+    BulkQueuedSerializer,
+    ErrorSerializer,
+    NotificationListResultSerializer,
+    QueuedResultSerializer,
+    RetryResultSerializer,
+    SendResultSerializer,
+    TemplatePreviewResultSerializer,
+    TemplateValidationResultSerializer,
+)
 from .serializers import (
     BulkNotificationSerializer,
     NotificationSerializer,
@@ -42,6 +55,7 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
 
     # preview и validate_template только считают результат и ничего не сохраняют,
     # поэтому доступны любому аутентифицированному пользователю, хотя это POST.
+    @extend_schema(request=TemplatePreviewSerializer, responses=TemplatePreviewResultSerializer)
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def preview(self, request, pk=None):
         template = self.get_object()
@@ -61,6 +75,7 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @extend_schema(request=None, responses=TemplateValidationResultSerializer)
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def validate_template(self, request, pk=None):
         template = self.get_object()
@@ -103,18 +118,38 @@ class NotificationViewSet(viewsets.ModelViewSet):
         """None для администратора (видит всё), иначе текущий пользователь."""
         return None if self.request.user.is_staff else self.request.user
 
+    @extend_schema(
+        request=SendNotificationSerializer,
+        responses={201: SendResultSerializer, 409: ErrorSerializer},
+        description="Создаёт уведомление и сразу отправляет его с fallback между провайдерами и каналами.",
+    )
     @action(detail=False, methods=["post"])
     def send(self, request):
         return self._send_single(request, deferred=False)
 
+    @extend_schema(
+        request=SendNotificationSerializer,
+        responses={201: QueuedResultSerializer, 409: ErrorSerializer},
+        description="Создаёт уведомление и ставит отправку в очередь Celery.",
+    )
     @action(detail=False, methods=["post"])
     def send_async(self, request):
         return self._send_single(request, deferred=True)
 
+    @extend_schema(
+        request=BulkNotificationSerializer,
+        responses={201: BulkCreatedSerializer},
+        description="Создаёт уведомления для списка получателей, но не отправляет их.",
+    )
     @action(detail=False, methods=["post"])
     def send_bulk(self, request):
         return self._send_bulk(request, deferred=False)
 
+    @extend_schema(
+        request=BulkNotificationSerializer,
+        responses={201: BulkQueuedSerializer},
+        description="Создаёт уведомления для списка получателей и ставит их в очередь Celery.",
+    )
     @action(detail=False, methods=["post"])
     def send_bulk_async(self, request):
         return self._send_bulk(request, deferred=True)
@@ -169,6 +204,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
         return Response(body, status=status.HTTP_201_CREATED)
 
+    @extend_schema(request=None, responses={200: RetryResultSerializer, 409: ErrorSerializer})
     @action(detail=True, methods=["post"])
     def retry(self, request, pk=None):
         notification = self.get_object()
@@ -187,6 +223,14 @@ class NotificationViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @extend_schema(
+        parameters=[NotificationStatsSerializer],
+        responses=OpenApiTypes.OBJECT,
+        description=(
+            "Обычный пользователь получает статистику по своим уведомлениям. "
+            "Администратор без user_id получает общую статистику за days дней."
+        ),
+    )
     @action(detail=False, methods=["get"])
     def stats(self, request):
         serializer = NotificationStatsSerializer(data=request.query_params)
@@ -240,6 +284,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(
+        parameters=[OpenApiParameter("limit", int, description="Не больше 1000, по умолчанию 100")],
+        responses=NotificationListResultSerializer,
+    )
     @action(detail=False, methods=["get"])
     def pending(self, request):
         limit = request.query_params.get("limit", 100)
@@ -260,6 +308,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @extend_schema(
+        parameters=[OpenApiParameter("limit", int, description="Не больше 500, по умолчанию 50")],
+        responses=NotificationListResultSerializer,
+    )
     @action(detail=False, methods=["get"])
     def failed(self, request):
         limit = request.query_params.get("limit", 50)

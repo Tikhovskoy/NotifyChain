@@ -69,7 +69,7 @@ class ProviderUsage(models.Model):
         return f"Usage {self.provider.name} - {self.date}"
 
     @property
-    def success_rate(self):
+    def success_rate(self) -> float:
         if self.requests_count == 0:
             return 0
         return (self.success_count / self.requests_count) * 100

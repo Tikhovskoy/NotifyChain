@@ -1,4 +1,5 @@
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -6,8 +7,14 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from apps.notifications.exceptions import ValidationException
+from apps.notifications.schema_serializers import ErrorSerializer
 
 from .models import Provider, ProviderUsage
+from .schema_serializers import (
+    AvailableProvidersSerializer,
+    ProviderStatsResultSerializer,
+    ProviderTestResultSerializer,
+)
 from .serializers import (
     ProviderSerializer,
     ProviderUsageSerializer,
@@ -25,6 +32,11 @@ class ProviderViewSet(viewsets.ModelViewSet):
     ordering_fields = ["name", "provider_type", "priority", "created_at"]
     ordering = ["provider_type", "priority"]
 
+    @extend_schema(
+        request=None,
+        responses={200: ProviderTestResultSerializer, 409: ErrorSerializer},
+        description="Проверяет конфигурацию и отправляет пробное сообщение через провайдера.",
+    )
     @action(detail=True, methods=["post"])
     def test(self, request, pk=None):
         provider = self.get_object()
@@ -39,6 +51,10 @@ class ProviderViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @extend_schema(
+        parameters=[OpenApiParameter("days", int, description="Период в днях, не больше 365")],
+        responses=ProviderStatsResultSerializer,
+    )
     @action(detail=True, methods=["get"])
     def stats(self, request, pk=None):
         provider = self.get_object()
@@ -51,6 +67,10 @@ class ProviderViewSet(viewsets.ModelViewSet):
 
         return Response(ProviderManager().get_provider_statistics(provider.id, days))
 
+    @extend_schema(
+        parameters=[OpenApiParameter("channel", str, required=True, enum=["email", "sms", "push"])],
+        responses={200: AvailableProvidersSerializer, 400: ErrorSerializer},
+    )
     @action(detail=False, methods=["get"])
     def available(self, request):
         channel = request.query_params.get("channel")
